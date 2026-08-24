@@ -1,0 +1,28 @@
+## .NET Core
+bin/
+obj/
+out/
+
+## Visual Studio
+.vs/
+*.user
+*.suo
+
+## VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+## Rider
+.idea/
+
+## appsettings — hassas bilgi içerebilir (connection string, JWT key)
+appsettings.Development.json
+appsettings.Production.json
+*.env
+
+## Diğer
+*.log
+.DS_Store
