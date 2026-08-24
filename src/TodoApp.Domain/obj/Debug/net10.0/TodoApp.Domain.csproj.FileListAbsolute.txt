@@ -1,0 +1,11 @@
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Domain\bin\Debug\net10.0\TodoApp.Domain.deps.json
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Domain\bin\Debug\net10.0\TodoApp.Domain.dll
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Domain\bin\Debug\net10.0\TodoApp.Domain.pdb
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Domain\obj\Debug\net10.0\TodoApp.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Domain\obj\Debug\net10.0\TodoApp.Domain.AssemblyInfoInputs.cache
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Domain\obj\Debug\net10.0\TodoApp.Domain.AssemblyInfo.cs
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Domain\obj\Debug\net10.0\TodoApp.Domain.csproj.CoreCompileInputs.cache
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Domain\obj\Debug\net10.0\TodoApp.Domain.dll
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Domain\obj\Debug\net10.0\refint\TodoApp.Domain.dll
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Domain\obj\Debug\net10.0\TodoApp.Domain.pdb
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Domain\obj\Debug\net10.0\ref\TodoApp.Domain.dll

@@ -1,0 +1,15 @@
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\bin\Debug\net10.0\TodoApp.Application.deps.json
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\bin\Debug\net10.0\TodoApp.Application.dll
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\bin\Debug\net10.0\TodoApp.Application.pdb
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\bin\Debug\net10.0\TodoApp.Domain.dll
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\bin\Debug\net10.0\TodoApp.Domain.pdb
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\obj\Debug\net10.0\TodoApp.Application.csproj.AssemblyReference.cache
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\obj\Debug\net10.0\TodoApp.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\obj\Debug\net10.0\TodoApp.Application.AssemblyInfoInputs.cache
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\obj\Debug\net10.0\TodoApp.Application.AssemblyInfo.cs
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\obj\Debug\net10.0\TodoApp.Application.csproj.CoreCompileInputs.cache
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\obj\Debug\net10.0\TodoApp..05D78BBE.Up2Date
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\obj\Debug\net10.0\TodoApp.Application.dll
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\obj\Debug\net10.0\refint\TodoApp.Application.dll
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\obj\Debug\net10.0\TodoApp.Application.pdb
+C:\Users\hasan\OneDrive\Belgeler\TodoApp\TodoApp\src\TodoApp.Application\obj\Debug\net10.0\ref\TodoApp.Application.dll

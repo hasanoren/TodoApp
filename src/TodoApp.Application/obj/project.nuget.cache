@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "Qi4cbGg9MQ8=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\hasan\\OneDrive\\Belgeler\\TodoApp\\TodoApp\\src\\TodoApp.Application\\TodoApp.Application.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\hasan\\.nuget\\packages\\bcrypt.net-next\\4.2.0\\bcrypt.net-next.4.2.0.nupkg.sha512",
+    "C:\\Users\\hasan\\.nuget\\packages\\fluentvalidation\\12.1.1\\fluentvalidation.12.1.1.nupkg.sha512"
+  ],
+  "logs": []
+}
