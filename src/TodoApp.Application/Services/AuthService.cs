@@ -1,6 +1,7 @@
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces;
 using TodoApp.Domain.Entities;
+using TodoApp.Domain.Exceptions;
 
 namespace TodoApp.Application.Services;
 
@@ -18,7 +19,7 @@ public class AuthService
         var existingUser = await _userRepository.GetByEmailAsync(request.Email);
         if (existingUser is not null)
         {
-            throw new InvalidOperationException("Bu e-posta adresi zaten kayıtlı."); // BR-001
+            throw new ConflictException("Bu e-posta adresi zaten kayıtlı."); // BR-001
         }
 
         var user = new User
