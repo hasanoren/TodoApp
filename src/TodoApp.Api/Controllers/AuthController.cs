@@ -18,14 +18,9 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequest request)
     {
-        try
-        {
-            var result = await _authService.RegisterAsync(request);
-            return Ok(result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { message = ex.Message }); // HTTP 409 — kaynak zaten var
-        }
+
+        var result = await _authService.RegisterAsync(request);
+        return Ok(result);
+
     }
 }
