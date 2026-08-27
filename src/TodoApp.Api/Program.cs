@@ -22,6 +22,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // ---- YENİ: Repository ve Service kayıtları ----
 builder.Services.AddScoped<TodoApp.Application.Interfaces.IUserRepository, TodoApp.Infrastructure.Repositories.UserRepository>();
 builder.Services.AddScoped<TodoApp.Application.Services.AuthService>();
+builder.Services.AddScoped<TodoApp.Application.Interfaces.IJwtTokenGenerator, TodoApp.Infrastructure.Services.JwtTokenGenerator>();
 
 // ---- YENİ: JWT Authentication yapılandırması ----
 var jwtKey = builder.Configuration["Jwt:Key"]!;

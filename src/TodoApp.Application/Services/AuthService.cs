@@ -8,10 +8,12 @@ namespace TodoApp.Application.Services;
 public class AuthService
 {
     private readonly IUserRepository _userRepository;
+    private readonly IJwtTokenGenerator _jwtTokenGenerator;
 
-    public AuthService(IUserRepository userRepository)
+    public AuthService(IUserRepository userRepository, IJwtTokenGenerator jwtTokenGenerator)
     {
         _userRepository = userRepository;
+        _jwtTokenGenerator = jwtTokenGenerator;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -39,6 +41,24 @@ public class AuthService
             UserId = user.Id,
             Email = user.Email,
             Token = string.Empty // JWT üretimini bir sonraki task'ta (Login) ekleyeceğiz
+        };
+    }
+
+    public async Task<AuthResponse> LoginAsync(LoginRequest request)
+    {
+        var user = await _userRepository.GetByEmailAsync(request.Email);
+        if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        {
+            throw new ValidationException("E-posta veya şifre hatalı.");
+        }
+
+        var token = _jwtTokenGenerator.GenerateToken(user);
+
+        return new AuthResponse
+        {
+            UserId = user.Id,
+            Email = user.Email,
+            Token = token
         };
     }
 }
