@@ -8,12 +8,18 @@ namespace TodoApp.Application.Services;
 public class AuthService
 {
     private readonly IUserRepository _userRepository;
+    private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
 
-    public AuthService(IUserRepository userRepository, IJwtTokenGenerator jwtTokenGenerator)
+    public AuthService(
+        IUserRepository userRepository,
+        IRefreshTokenRepository refreshTokenRepository,
+        IJwtTokenGenerator jwtTokenGenerator)
     {
         _userRepository = userRepository;
+        _refreshTokenRepository = refreshTokenRepository;
         _jwtTokenGenerator = jwtTokenGenerator;
+        // _configuration kaldırıldı — artık hiç kullanılmıyor
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -21,7 +27,7 @@ public class AuthService
         var existingUser = await _userRepository.GetByEmailAsync(request.Email);
         if (existingUser is not null)
         {
-            throw new ConflictException("Bu e-posta adresi zaten kayıtlı."); // BR-001
+            throw new ConflictException("Bu e-posta adresi zaten kayıtlı.");
         }
 
         var user = new User
@@ -29,19 +35,14 @@ public class AuthService
             Id = Guid.NewGuid(),
             Email = request.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-            Role = UserRole.User, // BR-005: varsayılan rol
+            Role = UserRole.User,
             CreatedAt = DateTime.UtcNow
         };
 
         await _userRepository.AddAsync(user);
         await _userRepository.SaveChangesAsync();
 
-        return new AuthResponse
-        {
-            UserId = user.Id,
-            Email = user.Email,
-            Token = string.Empty // JWT üretimini bir sonraki task'ta (Login) ekleyeceğiz
-        };
+        return await GenerateAuthResponseAsync(user);
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
@@ -52,13 +53,62 @@ public class AuthService
             throw new ValidationException("E-posta veya şifre hatalı.");
         }
 
-        var token = _jwtTokenGenerator.GenerateToken(user);
+        return await GenerateAuthResponseAsync(user);
+    }
+
+    public async Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request)
+    {
+        var storedToken = await _refreshTokenRepository.GetByTokenAsync(request.RefreshToken);
+
+        if (storedToken is null || !storedToken.IsActive)
+        {
+            throw new ValidationException("Geçersiz veya süresi dolmuş refresh token.");
+        }
+
+        storedToken.IsRevoked = true;
+
+        return await GenerateAuthResponseAsync(storedToken.User);
+    }
+
+    private async Task<AuthResponse> GenerateAuthResponseAsync(User user)
+    {
+        var accessToken = _jwtTokenGenerator.GenerateToken(user);
+        var (refreshTokenValue, expiresAt) = _jwtTokenGenerator.GenerateRefreshToken();
+
+        var refreshToken = new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Token = refreshTokenValue,
+            ExpiresAt = expiresAt,
+            IsRevoked = false,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _refreshTokenRepository.AddAsync(refreshToken);
+        await _refreshTokenRepository.SaveChangesAsync();
 
         return new AuthResponse
         {
             UserId = user.Id,
             Email = user.Email,
-            Token = token
+            Token = accessToken,
+            RefreshToken = refreshTokenValue
         };
+    }
+
+    public async Task LogoutAsync(RefreshTokenRequest request)
+    {
+        var storedToken = await _refreshTokenRepository.GetByTokenAsync(request.RefreshToken);
+
+        if (storedToken is null)
+        {
+            // Token zaten yoksa veya daha önce silinmişse, sessizce başarı say
+            // (saldırgana "bu token var mı yok mu" bilgisini sızdırmamak için)
+            return;
+        }
+
+        storedToken.IsRevoked = true;
+        await _refreshTokenRepository.SaveChangesAsync();
     }
 }

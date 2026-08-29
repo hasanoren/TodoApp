@@ -19,11 +19,10 @@ builder.Services.AddSwaggerGen();   // ---- YENİ: Swagger dokümanını üretir
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ---- YENİ: Repository ve Service kayıtları ----
 builder.Services.AddScoped<TodoApp.Application.Interfaces.IUserRepository, TodoApp.Infrastructure.Repositories.UserRepository>();
-builder.Services.AddScoped<TodoApp.Application.Services.AuthService>();
+builder.Services.AddScoped<TodoApp.Application.Interfaces.IRefreshTokenRepository, TodoApp.Infrastructure.Repositories.RefreshTokenRepository>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.IJwtTokenGenerator, TodoApp.Infrastructure.Services.JwtTokenGenerator>();
-
+builder.Services.AddScoped<TodoApp.Application.Services.AuthService>();
 // ---- YENİ: JWT Authentication yapılandırması ----
 var jwtKey = builder.Configuration["Jwt:Key"]!;
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];

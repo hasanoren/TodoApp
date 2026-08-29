@@ -30,4 +30,18 @@ public class AuthController : ControllerBase
         var result = await _authService.LoginAsync(request);
         return Ok(result);
     }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh(RefreshTokenRequest request)
+    {
+        var result = await _authService.RefreshTokenAsync(request);
+        return Ok(result);
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout(RefreshTokenRequest request)
+    {
+        await _authService.LogoutAsync(request);
+        return NoContent(); // 204 — başarılı ama dönecek içerik yok
+    }
 }
