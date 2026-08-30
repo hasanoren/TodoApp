@@ -55,4 +55,17 @@ public class JwtTokenGenerator : IJwtTokenGenerator
 
         return (token, expiresAt);
     }
+
+    public (string Token, DateTime ExpiresAt) GeneratePasswordResetToken()
+    {
+        var randomBytes = new byte[64];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomBytes);
+        var token = Convert.ToBase64String(randomBytes);
+
+        var expiryMinutes = int.Parse(_configuration["PasswordReset:ExpiryMinutes"] ?? "60");
+        var expiresAt = DateTime.UtcNow.AddMinutes(expiryMinutes);
+
+        return (token, expiresAt);
+    }
 }

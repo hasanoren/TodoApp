@@ -14,6 +14,7 @@ public class User
     public UserRole Role { get; set; } = UserRole.User;     // BR-005: default olarak "User"
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();   // YENİ
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+    public ICollection<PasswordResetToken> PasswordResetTokens { get; set; } = new List<PasswordResetToken>(); // YENİ
 
 }

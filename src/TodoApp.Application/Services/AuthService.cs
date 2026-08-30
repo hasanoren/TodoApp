@@ -10,15 +10,21 @@ public class AuthService
     private readonly IUserRepository _userRepository;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
+    private readonly IEmailSender _emailSender;
+    private readonly IPasswordResetTokenRepository _passwordResetTokenRepository;
 
     public AuthService(
         IUserRepository userRepository,
         IRefreshTokenRepository refreshTokenRepository,
-        IJwtTokenGenerator jwtTokenGenerator)
+        IJwtTokenGenerator jwtTokenGenerator,
+        IEmailSender emailSender,
+        IPasswordResetTokenRepository passwordResetTokenRepository)
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
         _jwtTokenGenerator = jwtTokenGenerator;
+        _emailSender = emailSender;
+        _passwordResetTokenRepository = passwordResetTokenRepository;
         // _configuration kaldırıldı — artık hiç kullanılmıyor
     }
 
@@ -110,5 +116,94 @@ public class AuthService
 
         storedToken.IsRevoked = true;
         await _refreshTokenRepository.SaveChangesAsync();
+    }
+
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
+    {
+        var user = await _userRepository.GetByEmailAsync(request.Email);
+
+        if (user is null)
+        {
+            return; // BR (T1.4.5): kullanıcı yoksa sessizce çık, email gönderme, ama Controller yine de aynı mesajı dönecek
+        }
+
+        var (token, expiresAt) = _jwtTokenGenerator.GeneratePasswordResetToken();
+
+        var resetToken = new PasswordResetToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Token = token,
+            ExpiresAt = expiresAt,
+            IsUsed = false,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _passwordResetTokenRepository.AddAsync(resetToken);
+        await _passwordResetTokenRepository.SaveChangesAsync();
+
+        var resetLink =
+     $"http://localhost:5240/api/Auth/reset-password?token={Uri.EscapeDataString(token)}";
+
+        var htmlBody = $"""
+    <p>Merhaba,</p>
+    <p>Şifreni sıfırlamak için aşağıdaki linke tıkla:</p>
+    <p>
+        <a href="{resetLink}">Şifremi Sıfırla</a>
+    </p>
+    <p>Bu link 60 dakika geçerlidir.</p>
+    """;
+
+        await _emailSender.SendEmailAsync(
+            user.Email,
+            "TodoApp - Şifre Sıfırlama",
+            htmlBody);
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordRequest request)
+    {
+        var storedToken = await _passwordResetTokenRepository.GetByTokenAsync(request.Token);
+
+        if (storedToken is null || !storedToken.IsActive)
+        {
+            throw new ValidationException("Geçersiz veya süresi dolmuş sıfırlama bağlantısı.");
+        }
+
+        storedToken.User.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        storedToken.IsUsed = true;
+
+        await _passwordResetTokenRepository.SaveChangesAsync();
+    }
+
+    public async Task ChangePasswordAsync(
+     Guid userId,
+     ChangePasswordRequest request)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+
+        if (user is null)
+        {
+            throw new ValidationException("Kullanıcı bulunamadı.");
+        }
+
+        var isPasswordCorrect = BCrypt.Net.BCrypt.Verify(
+            request.CurrentPassword,
+            user.PasswordHash);
+
+        if (!isPasswordCorrect)
+        {
+            throw new ValidationException("Mevcut şifre hatalı.");
+        }
+
+        user.PasswordHash =
+            BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+
+        // Kullanıcının tüm refresh tokenlarını geçersiz hale getir
+        foreach (var refreshToken in user.RefreshTokens)
+        {
+            refreshToken.IsRevoked = true;
+        }
+
+        await _userRepository.SaveChangesAsync();
     }
 }

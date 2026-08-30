@@ -6,4 +6,5 @@ public interface IJwtTokenGenerator
 {
     string GenerateToken(User user);
     (string Token, DateTime ExpiresAt) GenerateRefreshToken();   // YENİ
+    (string Token, DateTime ExpiresAt) GeneratePasswordResetToken();
 }

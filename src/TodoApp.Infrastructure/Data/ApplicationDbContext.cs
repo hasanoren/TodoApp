@@ -12,6 +12,7 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();   // YENİ
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,5 +32,17 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<RefreshToken>()
             .HasIndex(rt => rt.Token)
             .IsUnique();   // Token string'i benzersiz olmalı, aynı token iki kayıtta olamaz
+
+        modelBuilder.Entity<PasswordResetToken>()
+            .HasOne(prt => prt.User)
+            .WithMany(u => u.PasswordResetTokens)
+            .HasForeignKey(prt => prt.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PasswordResetToken>()
+            .HasIndex(prt => prt.Token)
+            .IsUnique();
     }
+
+
 }
