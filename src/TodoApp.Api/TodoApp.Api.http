@@ -1,6 +1,121 @@
-@TodoApp.Api_HostAddress = http://localhost:5240
+@HostAddress = http://localhost:5240
+@Email = testuser@example.com
+@Password = Password123!
+@NewPassword = NewPassword123!
 
-GET {{TodoApp.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### =================================================================
+### 1. AUTHENTICATION & USER ENDPOINTS
+### =================================================================
 
-###
+### 1.1 Register (Kayıt Ol)
+# @name register
+POST {{HostAddress}}/api/Auth/register
+Content-Type: application/json
+
+{
+  "email": "{{Email}}",
+  "password": "{{Password}}"
+}
+
+### 1.2 Login (Giriş Yap ve Token Al)
+# @name login
+POST {{HostAddress}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "email": "{{Email}}",
+  "password": "{{Password}}"
+}
+
+### Değişkenleri kaydetmek için (IDE desteğine göre):
+@token = {{login.response.body.token}}
+@refreshToken = {{login.response.body.refreshToken}}
+
+### 1.3 Refresh Token (Yeni Access Token Al)
+POST {{HostAddress}}/api/Auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+### 1.4 Change Password (Şifre Değiştir - [Authorize])
+PUT {{HostAddress}}/api/Auth/change-password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "currentPassword": "{{Password}}",
+  "newPassword": "{{NewPassword}}"
+}
+
+### 1.5 Forgot Password (Şifremi Unuttum)
+POST {{HostAddress}}/api/Auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "{{Email}}"
+}
+
+### 1.6 Logout (Çıkış Yap / Refresh Token İptal)
+POST {{HostAddress}}/api/Auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+
+### =================================================================
+### 2. TODO ITEM (TASK) ENDPOINTS - [Authorize Gerektirir]
+### =================================================================
+
+### 2.1 Görev Oluştur (Create Task)
+# @name createTodo
+POST {{HostAddress}}/api/TodoItems
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "İlk Görevim",
+  "description": "API üzerinden oluşturulan test görevi",
+  "dueDate": "2026-12-31T23:59:59Z"
+}
+
+### Oluşturulan Görevin ID'si:
+@todoId = {{createTodo.response.body.id}}
+
+### 2.2 Tüm Aktif Görevleri Listele (Get All Active Tasks)
+GET {{HostAddress}}/api/TodoItems
+Authorization: Bearer {{token}}
+
+### 2.3 Tekil Görev Getir (Get Task By Id)
+GET {{HostAddress}}/api/TodoItems/{{todoId}}
+Authorization: Bearer {{token}}
+
+### 2.4 Görev Güncelle (Update Task)
+PUT {{HostAddress}}/api/TodoItems/{{todoId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Güncellenmiş Görev Başlığı",
+  "description": "Açıklama güncellendi",
+  "dueDate": "2026-11-30T18:00:00Z"
+}
+
+### 2.5 Görevi Tamamla (Complete Task)
+PATCH {{HostAddress}}/api/TodoItems/{{todoId}}/complete
+Authorization: Bearer {{token}}
+
+### 2.6 Görevi Sil (Delete Task - Owner olduğu için Hard Delete)
+DELETE {{HostAddress}}/api/TodoItems/{{todoId}}
+Authorization: Bearer {{token}}
+
+### 2.7 Çöp Kutusunu Listele (Get Trash)
+GET {{HostAddress}}/api/TodoItems/trash
+Authorization: Bearer {{token}}
+
+### 2.8 Görevi Geri Getir (Restore Task - Çöp kutusundaki görevler için)
+POST {{HostAddress}}/api/TodoItems/{{todoId}}/restore
+Authorization: Bearer {{token}}
