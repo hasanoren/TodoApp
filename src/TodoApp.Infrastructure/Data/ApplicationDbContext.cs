@@ -11,8 +11,9 @@ public class ApplicationDbContext : DbContext
     }
 
     public DbSet<User> Users => Set<User>();
-    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();   // YENİ
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<TodoItem> TodoItems => Set<TodoItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -22,16 +23,16 @@ public class ApplicationDbContext : DbContext
             .HasIndex(u => u.Email)
             .IsUnique();
 
-        // YENİ: RefreshToken - User ilişkisi ve indeks
+        // RefreshToken - User ilişkisi ve indeks
         modelBuilder.Entity<RefreshToken>()
             .HasOne(rt => rt.User)
             .WithMany(u => u.RefreshTokens)
             .HasForeignKey(rt => rt.UserId)
-            .OnDelete(DeleteBehavior.Cascade);   // User silinirse RefreshToken'ları da silinir (BR-002 mantığıyla tutarlı)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<RefreshToken>()
             .HasIndex(rt => rt.Token)
-            .IsUnique();   // Token string'i benzersiz olmalı, aynı token iki kayıtta olamaz
+            .IsUnique();
 
         modelBuilder.Entity<PasswordResetToken>()
             .HasOne(prt => prt.User)
@@ -42,7 +43,27 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<PasswordResetToken>()
             .HasIndex(prt => prt.Token)
             .IsUnique();
+
+        // TodoItem - User FK yapılandırmaları
+        // OwnerId: CASCADE — User silinirse sahip olduğu görevler de silinir (BR-002)
+        modelBuilder.Entity<TodoItem>()
+            .HasOne(t => t.Owner)
+            .WithMany()
+            .HasForeignKey(t => t.OwnerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // CompletedByUserId: NO ACTION — SQL Server multiple cascade paths kuralı gereği
+        modelBuilder.Entity<TodoItem>()
+            .HasOne<User>()
+            .WithMany()
+            .HasForeignKey(t => t.CompletedByUserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // DeletedByUserId: NO ACTION — SQL Server multiple cascade paths kuralı gereği
+        modelBuilder.Entity<TodoItem>()
+            .HasOne<User>()
+            .WithMany()
+            .HasForeignKey(t => t.DeletedByUserId)
+            .OnDelete(DeleteBehavior.NoAction);
     }
-
-
 }
