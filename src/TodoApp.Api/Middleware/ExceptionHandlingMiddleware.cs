@@ -15,7 +15,7 @@ public class ExceptionHandlingMiddleware
         _logger = logger;
     }
 
-    public async System.Threading.Tasks.Task InvokeAsync(HttpContext context)
+    public async Task InvokeAsync(HttpContext context)
     {
         try
         {
@@ -28,7 +28,7 @@ public class ExceptionHandlingMiddleware
         }
     }
 
-    private static async System.Threading.Tasks.Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         var statusCode = exception switch
         {

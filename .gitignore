@@ -26,3 +26,8 @@ appsettings.Production.json
 ## Diğer
 *.log
 .DS_Store
+
+## appsettings — hassas bilgi içerir (connection string, JWT key, SMTP şifresi)
+appsettings.json
+appsettings.Development.json
+appsettings.Production.json
