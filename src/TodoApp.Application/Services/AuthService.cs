@@ -5,7 +5,7 @@ using TodoApp.Domain.Exceptions;
 
 namespace TodoApp.Application.Services;
 
-public class AuthService
+public class AuthService : IAuthService
 {
     private readonly IUserRepository _userRepository;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
