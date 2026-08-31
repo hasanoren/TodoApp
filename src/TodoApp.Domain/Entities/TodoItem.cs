@@ -29,5 +29,8 @@ public class TodoItem
     public DateTime? DeletedAt { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // BR-007: Bir görev sıfır veya daha fazla alt göreve (SubTask) sahip olabilir
+    public ICollection<SubTask> SubTasks { get; set; } = new List<SubTask>();
 }
 
