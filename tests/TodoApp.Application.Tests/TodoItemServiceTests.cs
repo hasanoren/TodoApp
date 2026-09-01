@@ -176,6 +176,45 @@ public class TodoItemServiceTests
             () => _service.GetByIdAsync(_ownerId, todoItem.Id));
     }
 
+    [Fact]
+    public async Task GetByIdAsync_WhenValidWithSubTasksAndTags_MapsNestedCollectionsCorrectly()
+    {
+        // ARRANGE
+        var todoItem = CreateSampleTodoItem(_ownerId);
+        var tag = new Tag { Id = Guid.NewGuid(), Name = "Urgent", CreatedAt = DateTime.UtcNow };
+
+        todoItem.SubTasks.Add(new SubTask
+        {
+            Id = Guid.NewGuid(),
+            TaskId = todoItem.Id,
+            Title = "Alt Görev 1",
+            Status = SubTaskStatus.Open,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        todoItem.TodoItemTags.Add(new TodoItemTag
+        {
+            TodoItemId = todoItem.Id,
+            TagId = tag.Id,
+            Tag = tag,
+            AssignedAt = DateTime.UtcNow
+        });
+
+        _mockRepo
+            .Setup(r => r.GetByIdAsync(todoItem.Id))
+            .ReturnsAsync(todoItem);
+
+        // ACT
+        var result = await _service.GetByIdAsync(_ownerId, todoItem.Id);
+
+        // ASSERT
+        Assert.NotNull(result);
+        Assert.Single(result.SubTasks);
+        Assert.Equal("Alt Görev 1", result.SubTasks[0].Title);
+        Assert.Single(result.Tags);
+        Assert.Equal("Urgent", result.Tags[0].Name);
+    }
+
     // --- Yardımcı ---
 
     private TodoItem CreateSampleTodoItem(Guid ownerId)

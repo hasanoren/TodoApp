@@ -32,5 +32,8 @@ public class TodoItem
 
     // BR-007: Bir görev sıfır veya daha fazla alt göreve (SubTask) sahip olabilir
     public ICollection<SubTask> SubTasks { get; set; } = new List<SubTask>();
+
+    // BR-024: Bir görev sıfır veya daha fazla etikete (Tag) sahip olabilir
+    public ICollection<TodoItemTag> TodoItemTags { get; set; } = new List<TodoItemTag>();
 }
 

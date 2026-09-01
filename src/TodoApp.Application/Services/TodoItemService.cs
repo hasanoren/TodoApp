@@ -166,7 +166,21 @@ public class TodoItemService : ITodoItemService
             OwnerId = todoItem.OwnerId,
             CompletedByUserId = todoItem.CompletedByUserId,
             CompletedAt = todoItem.CompletedAt,
-            CreatedAt = todoItem.CreatedAt
+            CreatedAt = todoItem.CreatedAt,
+            SubTasks = todoItem.SubTasks?.Select(st => new SubTaskResponse
+            {
+                Id = st.Id,
+                TaskId = st.TaskId,
+                Title = st.Title,
+                Status = st.Status.ToString(),
+                CreatedAt = st.CreatedAt
+            }).ToList() ?? new List<SubTaskResponse>(),
+            Tags = todoItem.TodoItemTags?.Select(tit => new TagResponse
+            {
+                Id = tit.Tag?.Id ?? tit.TagId,
+                Name = tit.Tag?.Name ?? string.Empty,
+                CreatedAt = tit.Tag?.CreatedAt ?? tit.AssignedAt
+            }).ToList() ?? new List<TagResponse>()
         };
     }
 }

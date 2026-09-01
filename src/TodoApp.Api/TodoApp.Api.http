@@ -150,3 +150,43 @@ Authorization: Bearer {{token}}
 DELETE {{HostAddress}}/api/subtasks/{{subTaskId}}
 Authorization: Bearer {{token}}
 
+
+### =================================================================
+### 4. TAG (ETİKET) ENDPOINTS
+### =================================================================
+
+### 4.1 Yeni Etiket Oluştur (Create Tag - Sadece Admin Rolü: BR-022)
+# @name createTag
+POST {{HostAddress}}/api/tags
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Backend"
+}
+
+### Oluşturulan Etiketin ID'si:
+@tagId = {{createTag.response.body.id}}
+
+### 4.2 Tüm Global Etiketleri Listele (Get All Tags: BR-021)
+GET {{HostAddress}}/api/tags
+Authorization: Bearer {{token}}
+
+### 4.3 Göreve Atanmış Etiketleri Listele (Get Tags By TaskId)
+GET {{HostAddress}}/api/todoitems/{{todoId}}/tags
+Authorization: Bearer {{token}}
+
+### 4.4 Göreve Etiket Bağla (Assign Tag to Task: BR-024)
+POST {{HostAddress}}/api/todoitems/{{todoId}}/tags/{{tagId}}
+Authorization: Bearer {{token}}
+
+### 4.5 Görevden Etiketi Kaldır (Remove Tag from Task)
+DELETE {{HostAddress}}/api/todoitems/{{todoId}}/tags/{{tagId}}
+Authorization: Bearer {{token}}
+
+### 4.6 Belirli Bir Etikete Sahip Görevleri Listele (Get Tasks By TagId)
+GET {{HostAddress}}/api/tags/{{tagId}}/todoitems
+Authorization: Bearer {{token}}
+
+
+
