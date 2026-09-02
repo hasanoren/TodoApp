@@ -11,5 +11,9 @@ public class TodoItemResponse
     public Guid? CompletedByUserId { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    // İlişkili alt görevler ve etiketler
+    public List<SubTaskResponse> SubTasks { get; set; } = new();
+    public List<TagResponse> Tags { get; set; } = new();
 }
 

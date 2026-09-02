@@ -17,14 +17,19 @@ public class TodoItemRepository : ITodoItemRepository
     public async Task<TodoItem?> GetByIdAsync(Guid id)
     {
         return await _context.TodoItems
+            .Include(t => t.SubTasks)
+            .Include(t => t.TodoItemTags)
+                .ThenInclude(tit => tit.Tag)
             .FirstOrDefaultAsync(t => t.Id == id);
     }
 
     // BR-011: Soft-delete edilmiş görevler listelenmez
-    // Şimdilik sadece owner'ın görevleri; EPIC 5'te TaskShare ile paylaşılan görevler de eklenecek
+    // Liste görünümü için hafif sorgu (SubTasks dahil edilmez, sadece Tag'ler dahil edilir)
     public async Task<List<TodoItem>> GetAccessibleByUserAsync(Guid userId)
     {
         return await _context.TodoItems
+            .Include(t => t.TodoItemTags)
+                .ThenInclude(tit => tit.Tag)
             .Where(t => t.OwnerId == userId && !t.IsDeleted)
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
@@ -34,6 +39,9 @@ public class TodoItemRepository : ITodoItemRepository
     public async Task<List<TodoItem>> GetDeletedByOwnerAsync(Guid userId)
     {
         return await _context.TodoItems
+            .Include(t => t.SubTasks)
+            .Include(t => t.TodoItemTags)
+                .ThenInclude(tit => tit.Tag)
             .Where(t => t.OwnerId == userId && t.IsDeleted)
             .OrderByDescending(t => t.DeletedAt)
             .ToListAsync();

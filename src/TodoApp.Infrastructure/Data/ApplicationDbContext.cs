@@ -15,6 +15,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<TodoItem> TodoItems => Set<TodoItem>();
     public DbSet<SubTask> SubTasks => Set<SubTask>();
+    public DbSet<Tag> Tags => Set<Tag>();
+    public DbSet<TodoItemTag> TodoItemTags => Set<TodoItemTag>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -74,6 +76,36 @@ public class ApplicationDbContext : DbContext
             .HasOne(st => st.Task)
             .WithMany(t => t.SubTasks)
             .HasForeignKey(st => st.TaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Tag yapılandırması
+        // BR-021: Global etiket adı (Unique)
+        modelBuilder.Entity<Tag>()
+            .HasIndex(t => t.Name)
+            .IsUnique();
+
+        // BR-023: Admin silinse bile Tag kalır (CreatedByUserId ON DELETE SET NULL)
+        modelBuilder.Entity<Tag>()
+            .HasOne(t => t.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(t => t.CreatedByUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // TodoItemTag Composite Key ve İlişki yapılandırması
+        // BR-024: Composite PK (TodoItemId + TagId) — Aynı Tag aynı Task'a iki kez eklenemez
+        modelBuilder.Entity<TodoItemTag>()
+            .HasKey(tit => new { tit.TodoItemId, tit.TagId });
+
+        modelBuilder.Entity<TodoItemTag>()
+            .HasOne(tit => tit.TodoItem)
+            .WithMany(t => t.TodoItemTags)
+            .HasForeignKey(tit => tit.TodoItemId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TodoItemTag>()
+            .HasOne(tit => tit.Tag)
+            .WithMany(t => t.TodoItemTags)
+            .HasForeignKey(tit => tit.TagId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
