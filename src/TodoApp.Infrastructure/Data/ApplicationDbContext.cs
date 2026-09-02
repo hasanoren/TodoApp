@@ -14,6 +14,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<TodoItem> TodoItems => Set<TodoItem>();
+    public DbSet<SubTask> SubTasks => Set<SubTask>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -65,5 +66,14 @@ public class ApplicationDbContext : DbContext
             .WithMany()
             .HasForeignKey(t => t.DeletedByUserId)
             .OnDelete(DeleteBehavior.NoAction);
+
+        // SubTask - TodoItem FK ve CASCADE yapılandırması
+        // BR-016: TaskId NOT NULL
+        // BR-019: Üst görev (hard) silinirse tüm alt görevler de silinir (ON DELETE CASCADE)
+        modelBuilder.Entity<SubTask>()
+            .HasOne(st => st.Task)
+            .WithMany(t => t.SubTasks)
+            .HasForeignKey(st => st.TaskId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

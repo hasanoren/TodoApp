@@ -119,3 +119,34 @@ Authorization: Bearer {{token}}
 ### 2.8 Görevi Geri Getir (Restore Task - Çöp kutusundaki görevler için)
 POST {{HostAddress}}/api/TodoItems/{{todoId}}/restore
 Authorization: Bearer {{token}}
+
+
+### =================================================================
+### 3. SUBTASK (ALT GÖREV) ENDPOINTS - [Authorize Gerektirir]
+### =================================================================
+
+### 3.1 Alt Görev Oluştur (Create SubTask)
+# @name createSubTask
+POST {{HostAddress}}/api/todoitems/{{todoId}}/subtasks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Veritabanı şemasını hazırla"
+}
+
+### Oluşturulan Alt Görevin ID'si:
+@subTaskId = {{createSubTask.response.body.id}}
+
+### 3.2 Göreve Ait Alt Görevleri Listele (Get SubTasks By TaskId)
+GET {{HostAddress}}/api/todoitems/{{todoId}}/subtasks
+Authorization: Bearer {{token}}
+
+### 3.3 Alt Görevi Tamamla / Durumunu Değiştir (Toggle Complete SubTask)
+PATCH {{HostAddress}}/api/subtasks/{{subTaskId}}/complete
+Authorization: Bearer {{token}}
+
+### 3.4 Alt Görevi Sil (Delete SubTask)
+DELETE {{HostAddress}}/api/subtasks/{{subTaskId}}
+Authorization: Bearer {{token}}
+
