@@ -17,6 +17,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<SubTask> SubTasks => Set<SubTask>();
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<TodoItemTag> TodoItemTags => Set<TodoItemTag>();
+    public DbSet<TaskShare> TaskShares => Set<TaskShare>();
+    public DbSet<OwnershipTransferRequest> OwnershipTransferRequests => Set<OwnershipTransferRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -107,5 +109,44 @@ public class ApplicationDbContext : DbContext
             .WithMany(t => t.TodoItemTags)
             .HasForeignKey(tit => tit.TagId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // TaskShare Composite Key ve İlişki yapılandırması
+        // BR-014: Composite PK (TaskId + UserId)
+        modelBuilder.Entity<TaskShare>()
+            .HasKey(ts => new { ts.TaskId, ts.UserId });
+
+        modelBuilder.Entity<TaskShare>()
+            .HasOne(ts => ts.Task)
+            .WithMany(t => t.TaskShares)
+            .HasForeignKey(ts => ts.TaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // SQL Server multiple cascade paths önlemek için NoAction
+        modelBuilder.Entity<TaskShare>()
+            .HasOne(ts => ts.User)
+            .WithMany(u => u.SharedTasks)
+            .HasForeignKey(ts => ts.UserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // OwnershipTransferRequest yapılandırması
+        modelBuilder.Entity<OwnershipTransferRequest>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+
+            entity.HasOne(r => r.Task)
+                .WithMany()
+                .HasForeignKey(r => r.TaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(r => r.FromUser)
+                .WithMany()
+                .HasForeignKey(r => r.FromUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(r => r.ToUser)
+                .WithMany()
+                .HasForeignKey(r => r.ToUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
     }
 }

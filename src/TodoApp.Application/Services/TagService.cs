@@ -138,7 +138,7 @@ public class TagService : ITagService
         }
 
         var tasks = await _tagRepository.GetTodoItemsByTagIdAsync(userId, tagId);
-        return tasks.Select(MapToTodoItemResponse).ToList();
+        return tasks.Select(t => MapToTodoItemResponse(t, userId)).ToList();
     }
 
     private static TagResponse MapToResponse(Tag tag)
@@ -151,7 +151,7 @@ public class TagService : ITagService
         };
     }
 
-    private static TodoItemResponse MapToTodoItemResponse(TodoItem todoItem)
+    private static TodoItemResponse MapToTodoItemResponse(TodoItem todoItem, Guid userId)
     {
         return new TodoItemResponse
         {
@@ -161,6 +161,7 @@ public class TagService : ITagService
             DueDate = todoItem.DueDate,
             Status = todoItem.Status.ToString(),
             OwnerId = todoItem.OwnerId,
+            IsOwner = todoItem.OwnerId == userId,
             CompletedByUserId = todoItem.CompletedByUserId,
             CompletedAt = todoItem.CompletedAt,
             CreatedAt = todoItem.CreatedAt,
@@ -170,7 +171,13 @@ public class TagService : ITagService
                 Id = tit.Tag?.Id ?? tit.TagId,
                 Name = tit.Tag?.Name ?? string.Empty,
                 CreatedAt = tit.Tag?.CreatedAt ?? tit.AssignedAt
-            }).ToList() ?? new List<TagResponse>()
+            }).ToList() ?? new List<TagResponse>(),
+            SharedWith = todoItem.TaskShares?.Select(ts => new SharedUserResponse
+            {
+                UserId = ts.UserId,
+                Email = ts.User?.Email ?? string.Empty,
+                SharedAt = ts.SharedAt
+            }).ToList() ?? new List<SharedUserResponse>()
         };
     }
 }

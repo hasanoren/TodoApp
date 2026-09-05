@@ -35,5 +35,8 @@ public class TodoItem
 
     // BR-024: Bir görev sıfır veya daha fazla etikete (Tag) sahip olabilir
     public ICollection<TodoItemTag> TodoItemTags { get; set; } = new List<TodoItemTag>();
+
+    // BR-014: Bir görev birden fazla kullanıcıyla paylaşılabilir
+    public ICollection<TaskShare> TaskShares { get; set; } = new List<TaskShare>();
 }
 

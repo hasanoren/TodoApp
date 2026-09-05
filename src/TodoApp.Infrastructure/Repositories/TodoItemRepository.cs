@@ -20,17 +20,22 @@ public class TodoItemRepository : ITodoItemRepository
             .Include(t => t.SubTasks)
             .Include(t => t.TodoItemTags)
                 .ThenInclude(tit => tit.Tag)
+            .Include(t => t.TaskShares)
+                .ThenInclude(ts => ts.User)
             .FirstOrDefaultAsync(t => t.Id == id);
     }
 
     // BR-011: Soft-delete edilmiş görevler listelenmez
-    // Liste görünümü için hafif sorgu (SubTasks dahil edilmez, sadece Tag'ler dahil edilir)
+    // Liste görünümü için hafif sorgu (SubTasks dahil edilmez, sadece Tag'ler ve Paylaşılanlar dahil edilir)
+    // Hem kendi görevleri hem kendisiyle paylaşılan görevler gelir
     public async Task<List<TodoItem>> GetAccessibleByUserAsync(Guid userId)
     {
         return await _context.TodoItems
             .Include(t => t.TodoItemTags)
                 .ThenInclude(tit => tit.Tag)
-            .Where(t => t.OwnerId == userId && !t.IsDeleted)
+            .Include(t => t.TaskShares)
+                .ThenInclude(ts => ts.User)
+            .Where(t => (t.OwnerId == userId || t.TaskShares.Any(ts => ts.UserId == userId)) && !t.IsDeleted)
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
     }

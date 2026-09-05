@@ -53,10 +53,10 @@ public class TodoItemServiceTests
             () => _service.GetByIdAsync(_ownerId, nonExistentId));
     }
 
-    // --- BR-008a: Owner silerse hard delete ---
+    // --- BR-008: Owner silerse soft delete uygulanır ---
 
     [Fact]
-    public async Task DeleteAsync_WhenCalledByOwner_HardDeletesItem()
+    public async Task DeleteAsync_WhenCalledByOwner_SoftDeletesItem()
     {
         // ARRANGE
         var todoItem = CreateSampleTodoItem(_ownerId);
@@ -68,8 +68,10 @@ public class TodoItemServiceTests
         // ACT
         await _service.DeleteAsync(_ownerId, todoItem.Id);
 
-        // ASSERT — repo.Delete çağrıldığını doğrula (hard delete)
-        _mockRepo.Verify(r => r.Delete(todoItem), Times.Once);
+        // ASSERT — IsDeleted=true ve DeletedByUserId set edildiğini doğrula (soft delete)
+        Assert.True(todoItem.IsDeleted);
+        Assert.Equal(_ownerId, todoItem.DeletedByUserId);
+        Assert.NotNull(todoItem.DeletedAt);
         _mockRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
     }
 
@@ -91,8 +93,29 @@ public class TodoItemServiceTests
         // ACT — tamamlanmış olsa bile silinebilmeli
         await _service.DeleteAsync(_ownerId, todoItem.Id);
 
-        // ASSERT
-        _mockRepo.Verify(r => r.Delete(todoItem), Times.Once);
+        // ASSERT — BR-008: Soft delete olarak işaretlenir
+        Assert.True(todoItem.IsDeleted);
+        Assert.Equal(_ownerId, todoItem.DeletedByUserId);
+        Assert.NotNull(todoItem.DeletedAt);
+        _mockRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
+    }
+
+    // BR-008 & BR-026: Paylaşılan kullanıcı görevi kesinlikle silemez
+    [Fact]
+    public async Task DeleteAsync_WhenCalledBySharedUser_ThrowsNotFoundException()
+    {
+        // ARRANGE — görev owner'a ait ama sharedUserId ile paylaşılmış
+        var sharedUserId = Guid.NewGuid();
+        var todoItem = CreateSampleTodoItem(_ownerId);
+        todoItem.TaskShares.Add(new TaskShare { TaskId = todoItem.Id, UserId = sharedUserId });
+
+        _mockRepo
+            .Setup(r => r.GetByIdAsync(todoItem.Id))
+            .ReturnsAsync(todoItem);
+
+        // ACT & ASSERT
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => _service.DeleteAsync(sharedUserId, todoItem.Id));
     }
 
     // --- BR-015: CompletedByUserId ve CompletedAt set edilir ---

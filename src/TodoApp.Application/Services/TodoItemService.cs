@@ -30,20 +30,20 @@ public class TodoItemService : ITodoItemService
         await _todoItemRepository.AddAsync(todoItem);
         await _todoItemRepository.SaveChangesAsync();
 
-        return MapToResponse(todoItem);
+        return MapToResponse(todoItem, userId);
     }
 
     public async Task<TodoItemResponse> GetByIdAsync(Guid userId, Guid todoItemId)
     {
         var todoItem = await GetAuthorizedTodoItemAsync(userId, todoItemId);
-        return MapToResponse(todoItem);
+        return MapToResponse(todoItem, userId);
     }
 
     public async Task<List<TodoItemResponse>> GetAllAsync(Guid userId)
     {
         // BR-011: IsDeleted=false filtresi repository'de uygulanıyor
         var items = await _todoItemRepository.GetAccessibleByUserAsync(userId);
-        return items.Select(MapToResponse).ToList();
+        return items.Select(item => MapToResponse(item, userId)).ToList();
     }
 
     public async Task<TodoItemResponse> UpdateAsync(
@@ -57,7 +57,7 @@ public class TodoItemService : ITodoItemService
 
         await _todoItemRepository.SaveChangesAsync();
 
-        return MapToResponse(todoItem);
+        return MapToResponse(todoItem, userId);
     }
 
     public async Task<TodoItemResponse> CompleteAsync(Guid userId, Guid todoItemId)
@@ -71,28 +71,23 @@ public class TodoItemService : ITodoItemService
 
         await _todoItemRepository.SaveChangesAsync();
 
-        return MapToResponse(todoItem);
+        return MapToResponse(todoItem, userId);
     }
 
     public async Task DeleteAsync(Guid userId, Guid todoItemId)
     {
         var todoItem = await GetAuthorizedTodoItemAsync(userId, todoItemId);
 
-        // BR-009: Tamamlanmış görev de silinebilir — Status kontrolü yapılmaz
+        // BR-008 & BR-026: Yalnızca görev sahibi silebilir! Paylaşılan kullanıcılar silemez
+        if (todoItem.OwnerId != userId)
+        {
+            throw new NotFoundException("Görev bulunamadı.");
+        }
 
-        if (todoItem.OwnerId == userId)
-        {
-            // BR-008a: Owner siliyorsa → hard delete, restore edilemez
-            _todoItemRepository.Delete(todoItem);
-        }
-        else
-        {
-            // BR-008b: Paylaşılan kullanıcı siliyorsa → soft delete (EPIC 5'te aktif olacak)
-            // Şimdilik sadece owner silebilir; bu dal TaskShare eklenince çalışacak
-            todoItem.IsDeleted = true;
-            todoItem.DeletedByUserId = userId;
-            todoItem.DeletedAt = DateTime.UtcNow;
-        }
+        // BR-008: Soft delete uygulanır (çöp kutusuna gider, restore edilebilir)
+        todoItem.IsDeleted = true;
+        todoItem.DeletedByUserId = userId;
+        todoItem.DeletedAt = DateTime.UtcNow;
 
         await _todoItemRepository.SaveChangesAsync();
     }
@@ -119,28 +114,35 @@ public class TodoItemService : ITodoItemService
 
         await _todoItemRepository.SaveChangesAsync();
 
-        return MapToResponse(todoItem);
+        return MapToResponse(todoItem, userId);
     }
 
     public async Task<List<TodoItemResponse>> GetTrashAsync(Guid userId)
     {
         var items = await _todoItemRepository.GetDeletedByOwnerAsync(userId);
-        return items.Select(MapToResponse).ToList();
+        return items.Select(item => MapToResponse(item, userId)).ToList();
     }
 
     // --- Yardımcı Metotlar ---
 
     /// <summary>
     /// Görev ID'sine göre görev getirir ve kullanıcının yetkisini kontrol eder.
-    /// BR-029: Yetkisiz erişimde 404 döner (403 değil).
-    /// Şimdilik sadece owner kontrolü; EPIC 5'te TaskShare kontrolü eklenecek.
+    /// BR-025 & BR-029: Owner veya TaskShare'deki kullanıcılar erişebilir.
     /// </summary>
     private async Task<TodoItem> GetAuthorizedTodoItemAsync(Guid userId, Guid todoItemId)
     {
         var todoItem = await _todoItemRepository.GetByIdAsync(todoItemId);
 
+        if (todoItem is null)
+        {
+            throw new NotFoundException("Görev bulunamadı.");
+        }
+
+        var isOwner = todoItem.OwnerId == userId;
+        var isShared = todoItem.TaskShares != null && todoItem.TaskShares.Any(ts => ts.UserId == userId);
+
         // BR-029: Owner veya TaskShare'de kayıtlı olmayan kullanıcı → 404
-        if (todoItem is null || todoItem.OwnerId != userId)
+        if (!isOwner && !isShared)
         {
             throw new NotFoundException("Görev bulunamadı.");
         }
@@ -154,7 +156,7 @@ public class TodoItemService : ITodoItemService
         return todoItem;
     }
 
-    private static TodoItemResponse MapToResponse(TodoItem todoItem)
+    private static TodoItemResponse MapToResponse(TodoItem todoItem, Guid currentUserId)
     {
         return new TodoItemResponse
         {
@@ -164,6 +166,7 @@ public class TodoItemService : ITodoItemService
             DueDate = todoItem.DueDate,
             Status = todoItem.Status.ToString(),
             OwnerId = todoItem.OwnerId,
+            IsOwner = todoItem.OwnerId == currentUserId,
             CompletedByUserId = todoItem.CompletedByUserId,
             CompletedAt = todoItem.CompletedAt,
             CreatedAt = todoItem.CreatedAt,
@@ -180,8 +183,13 @@ public class TodoItemService : ITodoItemService
                 Id = tit.Tag?.Id ?? tit.TagId,
                 Name = tit.Tag?.Name ?? string.Empty,
                 CreatedAt = tit.Tag?.CreatedAt ?? tit.AssignedAt
-            }).ToList() ?? new List<TagResponse>()
+            }).ToList() ?? new List<TagResponse>(),
+            SharedWith = todoItem.TaskShares?.Select(ts => new SharedUserResponse
+            {
+                UserId = ts.UserId,
+                Email = ts.User?.Email ?? string.Empty,
+                SharedAt = ts.SharedAt
+            }).ToList() ?? new List<SharedUserResponse>()
         };
     }
 }
-

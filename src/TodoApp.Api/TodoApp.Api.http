@@ -189,4 +189,59 @@ GET {{HostAddress}}/api/tags/{{tagId}}/todoitems
 Authorization: Bearer {{token}}
 
 
+### =================================================================
+### 5. TASK SHARE & SAHİPLİK DEVRİ ENDPOINTS (EPIC 5)
+### =================================================================
+
+### 5.1 Görevi Başka Kullanıcıyla Paylaş (Share Task: BR-013)
+POST {{HostAddress}}/api/todoitems/{{todoId}}/shares
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "email": "test@example.com"
+}
+
+### 5.2 Görevin Paylaşıldığı Kullanıcıları Listele (Get Shared Users)
+GET {{HostAddress}}/api/todoitems/{{todoId}}/shares
+Authorization: Bearer {{token}}
+
+### 5.3 Görev Sahibinin Paylaşımı Kaldırması (Remove Share - Owner)
+# @targetUserId = test@example.com kullanıcısının ID'si
+DELETE {{HostAddress}}/api/todoitems/{{todoId}}/shares/{{targetUserId}}
+Authorization: Bearer {{token}}
+
+### 5.4 Paylaşılan Kullanıcının Kendi İsteğiyle Çıkması (Leave Share: BR-028)
+DELETE {{HostAddress}}/api/todoitems/{{todoId}}/shares/me
+Authorization: Bearer {{token}}
+
+### 5.5 Görev Devir Talebi Başlat (Create Transfer Request: BR-030)
+POST {{HostAddress}}/api/todoitems/{{todoId}}/transfer-requests
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "newOwnerEmail": "test@example.com"
+}
+
+### 5.6 Kullanıcının Onayını Bekleyen Devir Talepleri (Get Pending Transfer Requests)
+GET {{HostAddress}}/api/transfer-requests/pending
+Authorization: Bearer {{token}}
+
+### 5.7 Devir Talebini Kabul Et (Accept Transfer Request)
+# @requestId = Talep ID'si
+POST {{HostAddress}}/api/transfer-requests/{{requestId}}/accept
+Authorization: Bearer {{token}}
+
+### 5.8 Devir Talebini Reddet (Reject Transfer Request)
+POST {{HostAddress}}/api/transfer-requests/{{requestId}}/reject
+Authorization: Bearer {{token}}
+
+### 5.9 Devir Talebini İptal Et (Cancel Transfer Request - Owner)
+POST {{HostAddress}}/api/transfer-requests/{{requestId}}/cancel
+Authorization: Bearer {{token}}
+
+
+
+
 
