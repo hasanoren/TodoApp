@@ -43,16 +43,24 @@ public class TagRepository : ITagRepository
             .ToListAsync();
     }
 
-    public async Task<List<TodoItem>> GetTodoItemsByTagIdAsync(Guid userId, Guid tagId)
+    public async Task<(List<TodoItem> Items, int TotalCount)> GetTodoItemsByTagIdAsync(Guid userId, Guid tagId, int page, int pageSize)
     {
-        return await _context.TodoItemTags
-            .Where(tit => tit.TagId == tagId && tit.TodoItem.OwnerId == userId && !tit.TodoItem.IsDeleted)
+        var query = _context.TodoItemTags
+            .Where(tit => tit.TagId == tagId && tit.TodoItem.OwnerId == userId && !tit.TodoItem.IsDeleted);
+
+        var totalCount = await query.CountAsync();
+
+        var items = await query
             .Include(tit => tit.TodoItem)
                 .ThenInclude(t => t.TodoItemTags)
                     .ThenInclude(tit2 => tit2.Tag)
+            .OrderByDescending(tit => tit.TodoItem.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(tit => tit.TodoItem)
-            .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
+
+        return (items, totalCount);
     }
 
     public async Task AddAsync(Tag tag)

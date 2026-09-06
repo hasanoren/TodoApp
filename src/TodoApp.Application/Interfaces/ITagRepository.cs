@@ -8,7 +8,7 @@ public interface ITagRepository
     Task<Tag?> GetByNameAsync(string name);
     Task<List<Tag>> GetAllAsync();
     Task<List<Tag>> GetTagsByTodoItemIdAsync(Guid todoItemId);
-    Task<List<TodoItem>> GetTodoItemsByTagIdAsync(Guid userId, Guid tagId);
+    Task<(List<TodoItem> Items, int TotalCount)> GetTodoItemsByTagIdAsync(Guid userId, Guid tagId, int page, int pageSize);
     Task AddAsync(Tag tag);
     Task<TodoItemTag?> GetTodoItemTagAsync(Guid todoItemId, Guid tagId);
     Task AddTodoItemTagAsync(TodoItemTag todoItemTag);

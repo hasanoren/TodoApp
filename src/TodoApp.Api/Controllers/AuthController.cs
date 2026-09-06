@@ -57,6 +57,8 @@ public class AuthController : ControllerBase
     [HttpGet("reset-password")]
     public IActionResult ResetPasswordPage([FromQuery] string token)
     {
+        var encodedToken = System.Net.WebUtility.HtmlEncode(token ?? string.Empty);
+
         var html = $"""
         <!DOCTYPE html>
         <html lang="tr">
@@ -72,7 +74,7 @@ public class AuthController : ControllerBase
 
                 <input type="hidden"
                        name="Token"
-                       value="{token}" />
+                       value="{encodedToken}" />
 
                 <label>Yeni Şifre:</label>
                 <br />

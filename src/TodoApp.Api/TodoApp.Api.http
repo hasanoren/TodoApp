@@ -108,16 +108,20 @@ Content-Type: application/json
 PATCH {{HostAddress}}/api/TodoItems/{{todoId}}/complete
 Authorization: Bearer {{token}}
 
-### 2.6 Görevi Sil (Delete Task - Owner olduğu için Hard Delete)
+### 2.6 Görevi Sil (Delete Task - Soft Delete, Çöp Kutusuna Atar)
 DELETE {{HostAddress}}/api/TodoItems/{{todoId}}
 Authorization: Bearer {{token}}
 
-### 2.7 Çöp Kutusunu Listele (Get Trash)
-GET {{HostAddress}}/api/TodoItems/trash
+### 2.7 Çöp Kutusunu Listele (Get Trash - Paginated: ?page=1&pageSize=20)
+GET {{HostAddress}}/api/TodoItems/trash?page=1&pageSize=20
 Authorization: Bearer {{token}}
 
 ### 2.8 Görevi Geri Getir (Restore Task - Çöp kutusundaki görevler için)
 POST {{HostAddress}}/api/TodoItems/{{todoId}}/restore
+Authorization: Bearer {{token}}
+
+### 2.9 Görevi Kalıcı Olarak Sil (Permanent Delete Task - Yalnızca çöp kutusundaki görevler için)
+DELETE {{HostAddress}}/api/TodoItems/{{todoId}}/permanent
 Authorization: Bearer {{token}}
 
 

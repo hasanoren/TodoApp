@@ -129,7 +129,7 @@ public class TagService : ITagService
         await _tagRepository.SaveChangesAsync();
     }
 
-    public async Task<List<TodoItemResponse>> GetTasksByTagIdAsync(Guid userId, Guid tagId)
+    public async Task<PaginatedResponse<TodoItemResponse>> GetTasksByTagIdAsync(Guid userId, Guid tagId, PaginatedRequest request)
     {
         var tag = await _tagRepository.GetByIdAsync(tagId);
         if (tag is null)
@@ -137,8 +137,13 @@ public class TagService : ITagService
             throw new NotFoundException("Etiket bulunamadı.");
         }
 
-        var tasks = await _tagRepository.GetTodoItemsByTagIdAsync(userId, tagId);
-        return tasks.Select(t => MapToTodoItemResponse(t, userId)).ToList();
+        var page = Math.Max(1, request.Page);
+        var pageSize = Math.Clamp(request.PageSize, 1, PaginatedRequest.MaxPageSize);
+
+        var (tasks, totalCount) = await _tagRepository.GetTodoItemsByTagIdAsync(userId, tagId, page, pageSize);
+        var mappedItems = tasks.Select(t => MapToTodoItemResponse(t, userId)).ToList();
+
+        return new PaginatedResponse<TodoItemResponse>(mappedItems, totalCount, page, pageSize);
     }
 
     private static TagResponse MapToResponse(Tag tag)

@@ -181,6 +181,90 @@ public class TodoItemServiceTests
             () => _service.RestoreAsync(_ownerId, todoItem.Id));
     }
 
+    [Fact]
+    public async Task RestoreAsync_WhenItemIsNotDeleted_ThrowsValidationException()
+    {
+        // ARRANGE — aktif (silinmemiş) görev
+        var todoItem = CreateSampleTodoItem(_ownerId);
+        todoItem.IsDeleted = false;
+
+        _mockRepo
+            .Setup(r => r.GetByIdAsync(todoItem.Id))
+            .ReturnsAsync(todoItem);
+
+        // ACT & ASSERT
+        await Assert.ThrowsAsync<ValidationException>(
+            () => _service.RestoreAsync(_ownerId, todoItem.Id));
+    }
+
+    // --- Permanent Delete (Hard Delete) Tests ---
+
+    [Fact]
+    public async Task PermanentDeleteAsync_WhenCalledByOwnerOnTrashItem_PermanentlyDeletesItem()
+    {
+        // ARRANGE — çöp kutusundaki görev
+        var todoItem = CreateSampleTodoItem(_ownerId);
+        todoItem.IsDeleted = true;
+
+        _mockRepo
+            .Setup(r => r.GetByIdAsync(todoItem.Id))
+            .ReturnsAsync(todoItem);
+
+        // ACT
+        await _service.PermanentDeleteAsync(_ownerId, todoItem.Id);
+
+        // ASSERT
+        _mockRepo.Verify(r => r.Delete(todoItem), Times.Once);
+        _mockRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task PermanentDeleteAsync_WhenItemIsNotInTrash_ThrowsValidationException()
+    {
+        // ARRANGE — aktif (çöp kutusunda olmayan) görev
+        var todoItem = CreateSampleTodoItem(_ownerId);
+        todoItem.IsDeleted = false;
+
+        _mockRepo
+            .Setup(r => r.GetByIdAsync(todoItem.Id))
+            .ReturnsAsync(todoItem);
+
+        // ACT & ASSERT
+        await Assert.ThrowsAsync<ValidationException>(
+            () => _service.PermanentDeleteAsync(_ownerId, todoItem.Id));
+    }
+
+    [Fact]
+    public async Task PermanentDeleteAsync_WhenUserIsNotOwner_ThrowsNotFoundException()
+    {
+        // ARRANGE — görev başka kullanıcıya ait
+        var todoItem = CreateSampleTodoItem(_otherUserId);
+        todoItem.IsDeleted = true;
+
+        _mockRepo
+            .Setup(r => r.GetByIdAsync(todoItem.Id))
+            .ReturnsAsync(todoItem);
+
+        // ACT & ASSERT — BR-029 gereği yetkisiz erişimde 404
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => _service.PermanentDeleteAsync(_ownerId, todoItem.Id));
+    }
+
+    [Fact]
+    public async Task PermanentDeleteAsync_WhenItemNotFound_ThrowsNotFoundException()
+    {
+        // ARRANGE
+        var nonExistentId = Guid.NewGuid();
+
+        _mockRepo
+            .Setup(r => r.GetByIdAsync(nonExistentId))
+            .ReturnsAsync((TodoItem?)null);
+
+        // ACT & ASSERT
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => _service.PermanentDeleteAsync(_ownerId, nonExistentId));
+    }
+
     // --- BR-011: Soft-delete edilmiş görev aktif listede görünmemeli ---
 
     [Fact]
@@ -236,6 +320,65 @@ public class TodoItemServiceTests
         Assert.Equal("Alt Görev 1", result.SubTasks[0].Title);
         Assert.Single(result.Tags);
         Assert.Equal("Urgent", result.Tags[0].Name);
+    }
+
+    // --- Pagination Tests ---
+
+    [Fact]
+    public async Task GetAllAsync_ReturnsPaginatedResponse()
+    {
+        // ARRANGE
+        var items = new List<TodoItem>
+        {
+            CreateSampleTodoItem(_ownerId),
+            CreateSampleTodoItem(_ownerId)
+        };
+
+        _mockRepo
+            .Setup(r => r.GetAccessibleByUserAsync(_ownerId, 1, 20))
+            .ReturnsAsync((items, 2));
+
+        var request = new PaginatedRequest { Page = 1, PageSize = 20 };
+
+        // ACT
+        var result = await _service.GetAllAsync(_ownerId, request);
+
+        // ASSERT
+        Assert.NotNull(result);
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal(1, result.Page);
+        Assert.Equal(20, result.PageSize);
+        Assert.Equal(2, result.Items.Count);
+        Assert.Equal(1, result.TotalPages);
+        Assert.False(result.HasPreviousPage);
+        Assert.False(result.HasNextPage);
+    }
+
+    [Fact]
+    public async Task GetTrashAsync_ReturnsPaginatedResponse()
+    {
+        // ARRANGE
+        var deletedItem = CreateSampleTodoItem(_ownerId);
+        deletedItem.IsDeleted = true;
+        deletedItem.DeletedByUserId = _ownerId;
+        deletedItem.DeletedAt = DateTime.UtcNow;
+
+        var items = new List<TodoItem> { deletedItem };
+
+        _mockRepo
+            .Setup(r => r.GetDeletedByOwnerAsync(_ownerId, 1, 20))
+            .ReturnsAsync((items, 1));
+
+        var request = new PaginatedRequest { Page = 1, PageSize = 20 };
+
+        // ACT
+        var result = await _service.GetTrashAsync(_ownerId, request);
+
+        // ASSERT
+        Assert.NotNull(result);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(1, result.Page);
+        Assert.Single(result.Items);
     }
 
     // --- Yardımcı ---

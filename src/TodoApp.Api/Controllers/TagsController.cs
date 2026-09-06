@@ -46,10 +46,10 @@ public class TagsController : ControllerBase
 
     // GET /api/tags/{tagId}/todoitems — Belirli bir etikete sahip aktif görevleri listeleme
     [HttpGet("api/tags/{tagId:guid}/todoitems")]
-    public async Task<IActionResult> GetTodoItemsByTagId(Guid tagId)
+    public async Task<IActionResult> GetTodoItemsByTagId(Guid tagId, [FromQuery] PaginatedRequest request)
     {
         var userId = GetCurrentUserId();
-        var result = await _tagService.GetTasksByTagIdAsync(userId, tagId);
+        var result = await _tagService.GetTasksByTagIdAsync(userId, tagId, request);
         return Ok(result);
     }
 

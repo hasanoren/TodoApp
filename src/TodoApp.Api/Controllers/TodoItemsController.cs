@@ -27,10 +27,10 @@ public class TodoItemsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
     {
         var userId = GetCurrentUserId();
-        var result = await _todoItemService.GetAllAsync(userId);
+        var result = await _todoItemService.GetAllAsync(userId, request);
         return Ok(result);
     }
 
@@ -66,6 +66,14 @@ public class TodoItemsController : ControllerBase
         return NoContent();
     }
 
+    [HttpDelete("{id:guid}/permanent")]
+    public async Task<IActionResult> PermanentDelete(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        await _todoItemService.PermanentDeleteAsync(userId, id);
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/restore")]
     public async Task<IActionResult> Restore(Guid id)
     {
@@ -75,10 +83,10 @@ public class TodoItemsController : ControllerBase
     }
 
     [HttpGet("trash")]
-    public async Task<IActionResult> GetTrash()
+    public async Task<IActionResult> GetTrash([FromQuery] PaginatedRequest request)
     {
         var userId = GetCurrentUserId();
-        var result = await _todoItemService.GetTrashAsync(userId);
+        var result = await _todoItemService.GetTrashAsync(userId, request);
         return Ok(result);
     }
 

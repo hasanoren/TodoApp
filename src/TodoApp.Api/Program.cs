@@ -7,11 +7,16 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using TodoApp.Api.Middleware;
 using Microsoft.OpenApi;
+using FluentValidation;
+using FluentValidation.AspNetCore;
+using TodoApp.Application.Validators;
 
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {

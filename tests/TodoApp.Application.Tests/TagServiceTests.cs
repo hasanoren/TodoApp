@@ -247,16 +247,19 @@ public class TagServiceTests
             .ReturnsAsync(tag);
 
         _mockTagRepo
-            .Setup(r => r.GetTodoItemsByTagIdAsync(_ownerId, tag.Id))
-            .ReturnsAsync(tasks);
+            .Setup(r => r.GetTodoItemsByTagIdAsync(_ownerId, tag.Id, 1, 20))
+            .ReturnsAsync((tasks, 1));
 
         // ACT
-        var result = await _service.GetTasksByTagIdAsync(_ownerId, tag.Id);
+        var result = await _service.GetTasksByTagIdAsync(_ownerId, tag.Id, new PaginatedRequest { Page = 1, PageSize = 20 });
 
         // ASSERT
-        Assert.Single(result);
-        Assert.Equal("Ana Görev", result[0].Title);
-        Assert.Empty(result[0].SubTasks); // Liste görünümünde alt görevler boş döner
+        Assert.Single(result.Items);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(1, result.Page);
+        Assert.Equal(20, result.PageSize);
+        Assert.Equal("Ana Görev", result.Items[0].Title);
+        Assert.Empty(result.Items[0].SubTasks); // Liste görünümünde alt görevler boş döner
     }
 
     [Fact]
@@ -271,7 +274,7 @@ public class TagServiceTests
 
         // ACT & ASSERT
         await Assert.ThrowsAsync<NotFoundException>(
-            () => _service.GetTasksByTagIdAsync(_ownerId, nonExistentTagId));
+            () => _service.GetTasksByTagIdAsync(_ownerId, nonExistentTagId, new PaginatedRequest()));
     }
 
     // --- HELPER ---

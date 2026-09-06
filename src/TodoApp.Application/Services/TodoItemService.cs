@@ -39,11 +39,16 @@ public class TodoItemService : ITodoItemService
         return MapToResponse(todoItem, userId);
     }
 
-    public async Task<List<TodoItemResponse>> GetAllAsync(Guid userId)
+    public async Task<PaginatedResponse<TodoItemResponse>> GetAllAsync(Guid userId, PaginatedRequest request)
     {
+        var page = Math.Max(1, request.Page);
+        var pageSize = Math.Clamp(request.PageSize, 1, PaginatedRequest.MaxPageSize);
+
         // BR-011: IsDeleted=false filtresi repository'de uygulanıyor
-        var items = await _todoItemRepository.GetAccessibleByUserAsync(userId);
-        return items.Select(item => MapToResponse(item, userId)).ToList();
+        var (items, totalCount) = await _todoItemRepository.GetAccessibleByUserAsync(userId, page, pageSize);
+        var mappedItems = items.Select(item => MapToResponse(item, userId)).ToList();
+
+        return new PaginatedResponse<TodoItemResponse>(mappedItems, totalCount, page, pageSize);
     }
 
     public async Task<TodoItemResponse> UpdateAsync(
@@ -92,6 +97,25 @@ public class TodoItemService : ITodoItemService
         await _todoItemRepository.SaveChangesAsync();
     }
 
+    public async Task PermanentDeleteAsync(Guid userId, Guid todoItemId)
+    {
+        var todoItem = await _todoItemRepository.GetByIdAsync(todoItemId);
+
+        if (todoItem is null || todoItem.OwnerId != userId)
+        {
+            // BR-029: Yetkisiz erişim veya bulunamadığında 404
+            throw new NotFoundException("Görev bulunamadı.");
+        }
+
+        if (!todoItem.IsDeleted)
+        {
+            throw new ValidationException("Yalnızca çöp kutusundaki görevler kalıcı olarak silinebilir.");
+        }
+
+        _todoItemRepository.Delete(todoItem);
+        await _todoItemRepository.SaveChangesAsync();
+    }
+
     public async Task<TodoItemResponse> RestoreAsync(Guid userId, Guid todoItemId)
     {
         var todoItem = await _todoItemRepository.GetByIdAsync(todoItemId);
@@ -117,10 +141,15 @@ public class TodoItemService : ITodoItemService
         return MapToResponse(todoItem, userId);
     }
 
-    public async Task<List<TodoItemResponse>> GetTrashAsync(Guid userId)
+    public async Task<PaginatedResponse<TodoItemResponse>> GetTrashAsync(Guid userId, PaginatedRequest request)
     {
-        var items = await _todoItemRepository.GetDeletedByOwnerAsync(userId);
-        return items.Select(item => MapToResponse(item, userId)).ToList();
+        var page = Math.Max(1, request.Page);
+        var pageSize = Math.Clamp(request.PageSize, 1, PaginatedRequest.MaxPageSize);
+
+        var (items, totalCount) = await _todoItemRepository.GetDeletedByOwnerAsync(userId, page, pageSize);
+        var mappedItems = items.Select(item => MapToResponse(item, userId)).ToList();
+
+        return new PaginatedResponse<TodoItemResponse>(mappedItems, totalCount, page, pageSize);
     }
 
     // --- Yardımcı Metotlar ---
