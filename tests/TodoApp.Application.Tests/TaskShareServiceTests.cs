@@ -11,6 +11,7 @@ public class TaskShareServiceTests
 {
     private readonly Mock<ITaskShareRepository> _mockTaskShareRepo;
     private readonly Mock<ITodoItemRepository> _mockTodoItemRepo;
+    private readonly Mock<ISubTaskRepository> _mockSubTaskRepo;
     private readonly Mock<IUserRepository> _mockUserRepo;
     private readonly TaskShareService _service;
 
@@ -22,12 +23,15 @@ public class TaskShareServiceTests
     {
         _mockTaskShareRepo = new Mock<ITaskShareRepository>();
         _mockTodoItemRepo = new Mock<ITodoItemRepository>();
+        _mockSubTaskRepo = new Mock<ISubTaskRepository>();
         _mockUserRepo = new Mock<IUserRepository>();
+
+        var authService = new TaskAuthorizationService(_mockTodoItemRepo.Object, _mockSubTaskRepo.Object);
 
         _service = new TaskShareService(
             _mockTaskShareRepo.Object,
-            _mockTodoItemRepo.Object,
-            _mockUserRepo.Object);
+            _mockUserRepo.Object,
+            authService);
     }
 
     // --- SHARE TASK TESTS ---

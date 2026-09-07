@@ -11,6 +11,7 @@ namespace TodoApp.Application.Tests;
 public class TodoItemServiceTests
 {
     private readonly Mock<ITodoItemRepository> _mockRepo;
+    private readonly Mock<ISubTaskRepository> _mockSubTaskRepo;
     private readonly TodoItemService _service;
     private readonly Guid _ownerId = Guid.NewGuid();
     private readonly Guid _otherUserId = Guid.NewGuid();
@@ -18,7 +19,9 @@ public class TodoItemServiceTests
     public TodoItemServiceTests()
     {
         _mockRepo = new Mock<ITodoItemRepository>();
-        _service = new TodoItemService(_mockRepo.Object);
+        _mockSubTaskRepo = new Mock<ISubTaskRepository>();
+        var authService = new TaskAuthorizationService(_mockRepo.Object, _mockSubTaskRepo.Object);
+        _service = new TodoItemService(_mockRepo.Object, authService);
     }
 
     // --- BR-029: Yetkisiz erişimde 404 ---

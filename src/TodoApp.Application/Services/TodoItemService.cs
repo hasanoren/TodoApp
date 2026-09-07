@@ -8,10 +8,14 @@ namespace TodoApp.Application.Services;
 public class TodoItemService : ITodoItemService
 {
     private readonly ITodoItemRepository _todoItemRepository;
+    private readonly ITaskAuthorizationService _taskAuthorizationService;
 
-    public TodoItemService(ITodoItemRepository todoItemRepository)
+    public TodoItemService(
+        ITodoItemRepository todoItemRepository,
+        ITaskAuthorizationService taskAuthorizationService)
     {
         _todoItemRepository = todoItemRepository;
+        _taskAuthorizationService = taskAuthorizationService;
     }
 
     public async Task<TodoItemResponse> CreateAsync(Guid userId, CreateTodoItemRequest request)
@@ -35,7 +39,7 @@ public class TodoItemService : ITodoItemService
 
     public async Task<TodoItemResponse> GetByIdAsync(Guid userId, Guid todoItemId)
     {
-        var todoItem = await GetAuthorizedTodoItemAsync(userId, todoItemId);
+        var todoItem = await _taskAuthorizationService.EnsureCanReadAsync(todoItemId, userId);
         return MapToResponse(todoItem, userId);
     }
 
@@ -54,7 +58,7 @@ public class TodoItemService : ITodoItemService
     public async Task<TodoItemResponse> UpdateAsync(
         Guid userId, Guid todoItemId, UpdateTodoItemRequest request)
     {
-        var todoItem = await GetAuthorizedTodoItemAsync(userId, todoItemId);
+        var todoItem = await _taskAuthorizationService.EnsureCanModifyAsync(todoItemId, userId);
 
         todoItem.Title = request.Title;
         todoItem.Description = request.Description;
@@ -67,7 +71,7 @@ public class TodoItemService : ITodoItemService
 
     public async Task<TodoItemResponse> CompleteAsync(Guid userId, Guid todoItemId)
     {
-        var todoItem = await GetAuthorizedTodoItemAsync(userId, todoItemId);
+        var todoItem = await _taskAuthorizationService.EnsureCanCompleteAsync(todoItemId, userId);
 
         // BR-015: CompletedByUserId ve CompletedAt set edilir, paylaşım kalksa da korunur
         todoItem.Status = TodoItemStatus.Completed;
@@ -81,13 +85,8 @@ public class TodoItemService : ITodoItemService
 
     public async Task DeleteAsync(Guid userId, Guid todoItemId)
     {
-        var todoItem = await GetAuthorizedTodoItemAsync(userId, todoItemId);
-
         // BR-008 & BR-026: Yalnızca görev sahibi silebilir! Paylaşılan kullanıcılar silemez
-        if (todoItem.OwnerId != userId)
-        {
-            throw new NotFoundException("Görev bulunamadı.");
-        }
+        var todoItem = await _taskAuthorizationService.EnsureCanDeleteAsync(todoItemId, userId);
 
         // BR-008: Soft delete uygulanır (çöp kutusuna gider, restore edilebilir)
         todoItem.IsDeleted = true;
@@ -99,13 +98,8 @@ public class TodoItemService : ITodoItemService
 
     public async Task PermanentDeleteAsync(Guid userId, Guid todoItemId)
     {
-        var todoItem = await _todoItemRepository.GetByIdAsync(todoItemId);
-
-        if (todoItem is null || todoItem.OwnerId != userId)
-        {
-            // BR-029: Yetkisiz erişim veya bulunamadığında 404
-            throw new NotFoundException("Görev bulunamadı.");
-        }
+        // BR-010, BR-029: Sadece owner kalıcı silebilir
+        var todoItem = await _taskAuthorizationService.EnsureOwnerAsync(todoItemId, userId);
 
         if (!todoItem.IsDeleted)
         {
@@ -118,20 +112,14 @@ public class TodoItemService : ITodoItemService
 
     public async Task<TodoItemResponse> RestoreAsync(Guid userId, Guid todoItemId)
     {
-        var todoItem = await _todoItemRepository.GetByIdAsync(todoItemId);
-
-        if (todoItem is null || todoItem.OwnerId != userId)
-        {
-            // BR-029: yetkisiz erişimde 404
-            throw new NotFoundException("Görev bulunamadı.");
-        }
+        // BR-010: Sadece owner restore edebilir
+        var todoItem = await _taskAuthorizationService.EnsureOwnerAsync(todoItemId, userId);
 
         if (!todoItem.IsDeleted)
         {
             throw new ValidationException("Bu görev zaten aktif durumda.");
         }
 
-        // BR-010: Sadece owner restore edebilir (yukarıda kontrol edildi)
         todoItem.IsDeleted = false;
         todoItem.DeletedByUserId = null;
         todoItem.DeletedAt = null;
@@ -150,39 +138,6 @@ public class TodoItemService : ITodoItemService
         var mappedItems = items.Select(item => MapToResponse(item, userId)).ToList();
 
         return new PaginatedResponse<TodoItemResponse>(mappedItems, totalCount, page, pageSize);
-    }
-
-    // --- Yardımcı Metotlar ---
-
-    /// <summary>
-    /// Görev ID'sine göre görev getirir ve kullanıcının yetkisini kontrol eder.
-    /// BR-025 & BR-029: Owner veya TaskShare'deki kullanıcılar erişebilir.
-    /// </summary>
-    private async Task<TodoItem> GetAuthorizedTodoItemAsync(Guid userId, Guid todoItemId)
-    {
-        var todoItem = await _todoItemRepository.GetByIdAsync(todoItemId);
-
-        if (todoItem is null)
-        {
-            throw new NotFoundException("Görev bulunamadı.");
-        }
-
-        var isOwner = todoItem.OwnerId == userId;
-        var isShared = todoItem.TaskShares != null && todoItem.TaskShares.Any(ts => ts.UserId == userId);
-
-        // BR-029: Owner veya TaskShare'de kayıtlı olmayan kullanıcı → 404
-        if (!isOwner && !isShared)
-        {
-            throw new NotFoundException("Görev bulunamadı.");
-        }
-
-        // BR-011: Soft-delete edilmiş görev aktif listede görünmez
-        if (todoItem.IsDeleted)
-        {
-            throw new NotFoundException("Görev bulunamadı.");
-        }
-
-        return todoItem;
     }
 
     private static TodoItemResponse MapToResponse(TodoItem todoItem, Guid currentUserId)

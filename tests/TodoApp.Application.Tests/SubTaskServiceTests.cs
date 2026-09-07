@@ -14,13 +14,15 @@ public class SubTaskServiceTests
     private readonly Mock<ITodoItemRepository> _mockTodoItemRepo;
     private readonly SubTaskService _service;
     private readonly Guid _ownerId = Guid.NewGuid();
+    private readonly Guid _sharedUserId = Guid.NewGuid();
     private readonly Guid _otherUserId = Guid.NewGuid();
 
     public SubTaskServiceTests()
     {
         _mockSubTaskRepo = new Mock<ISubTaskRepository>();
         _mockTodoItemRepo = new Mock<ITodoItemRepository>();
-        _service = new SubTaskService(_mockSubTaskRepo.Object, _mockTodoItemRepo.Object);
+        var authService = new TaskAuthorizationService(_mockTodoItemRepo.Object, _mockSubTaskRepo.Object);
+        _service = new SubTaskService(_mockSubTaskRepo.Object, authService);
     }
 
     // --- CREATE TESTS ---
@@ -48,6 +50,29 @@ public class SubTaskServiceTests
         _mockSubTaskRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
     }
 
+    // BR-020: Paylaşılan kullanıcı da alt görev ekleyebilmeli
+    [Fact]
+    public async Task CreateAsync_WhenCalledBySharedUser_AddsSubTaskAndReturnsResponse()
+    {
+        // ARRANGE
+        var parentTask = CreateParentTask(_ownerId, isDeleted: false);
+        parentTask.TaskShares.Add(new TaskShare { TaskId = parentTask.Id, UserId = _sharedUserId });
+
+        _mockTodoItemRepo
+            .Setup(r => r.GetByIdAsync(parentTask.Id))
+            .ReturnsAsync(parentTask);
+
+        var request = new CreateSubTaskRequest { Title = "Paylaşılan kullanıcının eklediği alt görev" };
+
+        // ACT
+        var result = await _service.CreateAsync(_sharedUserId, parentTask.Id, request);
+
+        // ASSERT
+        Assert.Equal("Paylaşılan kullanıcının eklediği alt görev", result.Title);
+        _mockSubTaskRepo.Verify(r => r.AddAsync(It.IsAny<SubTask>()), Times.Once);
+        _mockSubTaskRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
+    }
+
     [Fact]
     public async Task CreateAsync_WhenTitleIsEmpty_ThrowsValidationException()
     {
@@ -61,7 +86,7 @@ public class SubTaskServiceTests
 
     // BR-020 & BR-029: Yetkisiz kullanıcı 404 almalı
     [Fact]
-    public async Task CreateAsync_WhenUserIsNotParentOwner_ThrowsNotFoundException()
+    public async Task CreateAsync_WhenUserIsNotParentOwnerOrShared_ThrowsNotFoundException()
     {
         // ARRANGE — üst görev başka kullanıcıya ait
         var parentTask = CreateParentTask(_otherUserId, isDeleted: false);
@@ -176,7 +201,34 @@ public class SubTaskServiceTests
     }
 
     [Fact]
-    public async Task CompleteAsync_WhenUserIsNotOwner_ThrowsNotFoundException()
+    public async Task CompleteAsync_WhenCalledBySharedUser_Succeeds()
+    {
+        // ARRANGE
+        var parentTask = CreateParentTask(_ownerId, isDeleted: false);
+        parentTask.TaskShares.Add(new TaskShare { TaskId = parentTask.Id, UserId = _sharedUserId });
+        var subTask = new SubTask
+        {
+            Id = Guid.NewGuid(),
+            TaskId = parentTask.Id,
+            Task = parentTask,
+            Title = "Paylaşılan Alt Görev",
+            Status = SubTaskStatus.Open
+        };
+
+        _mockSubTaskRepo
+            .Setup(r => r.GetByIdAsync(subTask.Id))
+            .ReturnsAsync(subTask);
+
+        // ACT
+        var result = await _service.CompleteAsync(_sharedUserId, subTask.Id);
+
+        // ASSERT
+        Assert.Equal("Completed", result.Status);
+        _mockSubTaskRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WhenUserIsNotOwnerOrShared_ThrowsNotFoundException()
     {
         // ARRANGE
         var parentTask = CreateParentTask(_otherUserId, isDeleted: false);
@@ -226,6 +278,54 @@ public class SubTaskServiceTests
         _mockSubTaskRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
     }
 
+    // BR-020, BR-026: Paylaşılan kullanıcı alt görevi silemez (404 döner)
+    [Fact]
+    public async Task DeleteAsync_WhenCalledBySharedUser_ThrowsNotFoundException()
+    {
+        // ARRANGE — Görev owner'a ait ve sharedUserId ile paylaşılmış
+        var parentTask = CreateParentTask(_ownerId, isDeleted: false);
+        parentTask.TaskShares.Add(new TaskShare { TaskId = parentTask.Id, UserId = _sharedUserId });
+        var subTask = new SubTask
+        {
+            Id = Guid.NewGuid(),
+            TaskId = parentTask.Id,
+            Task = parentTask,
+            Title = "Silinmeyecek Alt Görev",
+            Status = SubTaskStatus.Open
+        };
+
+        _mockSubTaskRepo
+            .Setup(r => r.GetByIdAsync(subTask.Id))
+            .ReturnsAsync(subTask);
+
+        // ACT & ASSERT — Paylaşılan kullanıcı alt görevi silemez, 404 almalı
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => _service.DeleteAsync(_sharedUserId, subTask.Id));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WhenCalledByStranger_ThrowsNotFoundException()
+    {
+        // ARRANGE
+        var parentTask = CreateParentTask(_ownerId, isDeleted: false);
+        var subTask = new SubTask
+        {
+            Id = Guid.NewGuid(),
+            TaskId = parentTask.Id,
+            Task = parentTask,
+            Title = "Yabancı Alt Görev",
+            Status = SubTaskStatus.Open
+        };
+
+        _mockSubTaskRepo
+            .Setup(r => r.GetByIdAsync(subTask.Id))
+            .ReturnsAsync(subTask);
+
+        // ACT & ASSERT
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => _service.DeleteAsync(_otherUserId, subTask.Id));
+    }
+
     // --- HELPER ---
     private static TodoItem CreateParentTask(Guid ownerId, bool isDeleted)
     {
@@ -240,4 +340,3 @@ public class SubTaskServiceTests
         };
     }
 }
-

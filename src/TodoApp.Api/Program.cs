@@ -57,6 +57,7 @@ builder.Services.AddScoped<TodoApp.Application.Interfaces.ITagRepository, TodoAp
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ITagService, TodoApp.Application.Services.TagService>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ITaskShareRepository, TodoApp.Infrastructure.Repositories.TaskShareRepository>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ITaskShareService, TodoApp.Application.Services.TaskShareService>();
+builder.Services.AddScoped<TodoApp.Application.Interfaces.ITaskAuthorizationService, TodoApp.Application.Services.TaskAuthorizationService>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.IOwnershipTransferRequestRepository, TodoApp.Infrastructure.Repositories.OwnershipTransferRequestRepository>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ITaskTransferService, TodoApp.Application.Services.TaskTransferService>();
 // ---- YENİ: JWT Authentication yapılandırması ----

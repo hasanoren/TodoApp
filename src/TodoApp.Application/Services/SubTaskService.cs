@@ -8,14 +8,14 @@ namespace TodoApp.Application.Services;
 public class SubTaskService : ISubTaskService
 {
     private readonly ISubTaskRepository _subTaskRepository;
-    private readonly ITodoItemRepository _todoItemRepository;
+    private readonly ITaskAuthorizationService _taskAuthorizationService;
 
     public SubTaskService(
         ISubTaskRepository subTaskRepository,
-        ITodoItemRepository todoItemRepository)
+        ITaskAuthorizationService taskAuthorizationService)
     {
         _subTaskRepository = subTaskRepository;
-        _todoItemRepository = todoItemRepository;
+        _taskAuthorizationService = taskAuthorizationService;
     }
 
     public async Task<SubTaskResponse> CreateAsync(
@@ -28,19 +28,8 @@ public class SubTaskService : ISubTaskService
             throw new ValidationException("Alt görev başlığı boş olamaz.");
         }
 
-        var parentTask = await _todoItemRepository.GetByIdAsync(taskId);
-
-        // BR-020 & BR-029: Yetki kontrolü parent Task üzerinden yapılır, yetkisiz ise 404
-        if (parentTask is null || parentTask.OwnerId != userId)
-        {
-            throw new NotFoundException("Görev bulunamadı.");
-        }
-
-        // BR-012: Silinmiş (soft-delete) bir Task'a yeni SubTask eklenemez
-        if (parentTask.IsDeleted)
-        {
-            throw new ValidationException("Silinmiş bir göreve alt görev eklenemez.");
-        }
+        // BR-012, BR-020 & BR-029: Sahip veya Paylaşılan alt görev ekleyebilir, silinmiş göreve eklenemez
+        await _taskAuthorizationService.EnsureCanManageSubTasksAsync(taskId, userId);
 
         var subTask = new SubTask
         {
@@ -59,19 +48,8 @@ public class SubTaskService : ISubTaskService
 
     public async Task<List<SubTaskResponse>> GetByTaskIdAsync(Guid userId, Guid taskId)
     {
-        var parentTask = await _todoItemRepository.GetByIdAsync(taskId);
-
-        // BR-020 & BR-029: Yetki kontrolü parent Task üzerinden
-        if (parentTask is null || parentTask.OwnerId != userId)
-        {
-            throw new NotFoundException("Görev bulunamadı.");
-        }
-
-        // BR-018: Üst görev soft-delete ise alt görevler de erişilemez
-        if (parentTask.IsDeleted)
-        {
-            throw new NotFoundException("Görev bulunamadı.");
-        }
+        // BR-018, BR-020 & BR-029: Sahip veya Paylaşılan listeleyebilir (üst görev silinmemişse)
+        await _taskAuthorizationService.EnsureCanReadAsync(taskId, userId);
 
         var subTasks = await _subTaskRepository.GetByTaskIdAsync(taskId);
         return subTasks.Select(MapToResponse).ToList();
@@ -79,21 +57,9 @@ public class SubTaskService : ISubTaskService
 
     public async Task<SubTaskResponse> CompleteAsync(Guid userId, Guid subTaskId)
     {
-        var subTask = await _subTaskRepository.GetByIdAsync(subTaskId);
+        // BR-017, BR-020 & BR-029: Sahip veya Paylaşılan alt görevi tamamlayabilir
+        var subTask = await _taskAuthorizationService.EnsureCanCompleteSubTaskAsync(subTaskId, userId);
 
-        // BR-020 & BR-029: Erişim kontrolü üst Task üzerinden yapılır
-        if (subTask is null || subTask.Task.OwnerId != userId)
-        {
-            throw new NotFoundException("Alt görev bulunamadı.");
-        }
-
-        // BR-018: Üst görev soft-delete ise erişilemez
-        if (subTask.Task.IsDeleted)
-        {
-            throw new NotFoundException("Alt görev bulunamadı.");
-        }
-
-        // BR-017: Alt görevin durumu bağımsız değişir, üst göreve dokunulmaz
         subTask.Status = subTask.Status == SubTaskStatus.Completed
             ? SubTaskStatus.Open
             : SubTaskStatus.Completed;
@@ -105,13 +71,8 @@ public class SubTaskService : ISubTaskService
 
     public async Task DeleteAsync(Guid userId, Guid subTaskId)
     {
-        var subTask = await _subTaskRepository.GetByIdAsync(subTaskId);
-
-        // BR-020 & BR-029: Erişim kontrolü üst Task üzerinden yapılır
-        if (subTask is null || subTask.Task.OwnerId != userId)
-        {
-            throw new NotFoundException("Alt görev bulunamadı.");
-        }
+        // BR-020, BR-026 & BR-029: YALNIZCA görev sahibi silebilir! Paylaşılan kullanıcı silemez (404 döner)
+        var subTask = await _taskAuthorizationService.EnsureCanDeleteSubTaskAsync(subTaskId, userId);
 
         _subTaskRepository.Delete(subTask);
         await _subTaskRepository.SaveChangesAsync();
@@ -129,4 +90,3 @@ public class SubTaskService : ISubTaskService
         };
     }
 }
-

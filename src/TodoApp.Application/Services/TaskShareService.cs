@@ -8,17 +8,17 @@ namespace TodoApp.Application.Services;
 public class TaskShareService : ITaskShareService
 {
     private readonly ITaskShareRepository _taskShareRepository;
-    private readonly ITodoItemRepository _todoItemRepository;
     private readonly IUserRepository _userRepository;
+    private readonly ITaskAuthorizationService _taskAuthorizationService;
 
     public TaskShareService(
         ITaskShareRepository taskShareRepository,
-        ITodoItemRepository todoItemRepository,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        ITaskAuthorizationService taskAuthorizationService)
     {
         _taskShareRepository = taskShareRepository;
-        _todoItemRepository = todoItemRepository;
         _userRepository = userRepository;
+        _taskAuthorizationService = taskAuthorizationService;
     }
 
     public async Task ShareAsync(Guid ownerUserId, Guid taskId, ShareTaskRequest request)
@@ -28,13 +28,8 @@ public class TaskShareService : ITaskShareService
             throw new ValidationException("E-posta adresi boş olamaz.");
         }
 
-        var task = await _todoItemRepository.GetByIdAsync(taskId);
-
         // BR-013 & BR-029: Sadece görev sahibi paylaşım yapabilir, yetkisizse 404
-        if (task is null || task.OwnerId != ownerUserId)
-        {
-            throw new NotFoundException("Görev bulunamadı.");
-        }
+        var task = await _taskAuthorizationService.EnsureOwnerAsync(taskId, ownerUserId);
 
         if (task.IsDeleted)
         {
@@ -75,19 +70,8 @@ public class TaskShareService : ITaskShareService
 
     public async Task<List<SharedUserResponse>> GetSharedUsersAsync(Guid userId, Guid taskId)
     {
-        var task = await _todoItemRepository.GetByIdAsync(taskId);
-
-        if (task is null || task.IsDeleted)
-        {
-            throw new NotFoundException("Görev bulunamadı.");
-        }
-
-        // BR-029: Sadece owner veya görevin paylaşıldığı kişiler listeyi görebilir
-        var isShared = await _taskShareRepository.IsSharedWithUserAsync(taskId, userId);
-        if (task.OwnerId != userId && !isShared)
-        {
-            throw new NotFoundException("Görev bulunamadı.");
-        }
+        // BR-029: Sadece owner veya görevin paylaşıldığı kişiler listeyi görebilir (silinmemişse)
+        await _taskAuthorizationService.EnsureCanReadAsync(taskId, userId);
 
         var shares = await _taskShareRepository.GetByTaskIdAsync(taskId);
 
@@ -101,13 +85,8 @@ public class TaskShareService : ITaskShareService
 
     public async Task RemoveShareAsync(Guid ownerUserId, Guid taskId, Guid targetUserId)
     {
-        var task = await _todoItemRepository.GetByIdAsync(taskId);
-
         // BR-013 & BR-029: Sadece görev sahibi birinin yetkisini kaldırabilir
-        if (task is null || task.OwnerId != ownerUserId)
-        {
-            throw new NotFoundException("Görev bulunamadı.");
-        }
+        await _taskAuthorizationService.EnsureOwnerAsync(taskId, ownerUserId);
 
         var share = await _taskShareRepository.GetAsync(taskId, targetUserId);
         if (share is null)
@@ -121,12 +100,6 @@ public class TaskShareService : ITaskShareService
 
     public async Task LeaveShareAsync(Guid sharedUserId, Guid taskId)
     {
-        var task = await _todoItemRepository.GetByIdAsync(taskId);
-        if (task is null)
-        {
-            throw new NotFoundException("Görev bulunamadı.");
-        }
-
         // BR-028: Paylaşılan kullanıcı kendi isteğiyle paylaşımdan çıkabilir
         var share = await _taskShareRepository.GetAsync(taskId, sharedUserId);
         if (share is null)

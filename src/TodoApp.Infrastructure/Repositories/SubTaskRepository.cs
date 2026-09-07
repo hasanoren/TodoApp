@@ -16,9 +16,10 @@ public class SubTaskRepository : ISubTaskRepository
 
     public async Task<SubTask?> GetByIdAsync(Guid id)
     {
-        // BR-020: Erişim kontrolü üst Task üzerinden yapılacağı için Task navigation'ı dahil edilir
+        // BR-020: Erişim kontrolü üst Task üzerinden yapılacağı için Task ve TaskShares navigation'ı dahil edilir
         return await _context.SubTasks
             .Include(st => st.Task)
+                .ThenInclude(t => t.TaskShares)
             .FirstOrDefaultAsync(st => st.Id == id);
     }
 
