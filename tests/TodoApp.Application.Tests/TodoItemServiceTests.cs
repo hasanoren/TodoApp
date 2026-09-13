@@ -144,6 +144,42 @@ public class TodoItemServiceTests
         _mockRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
     }
 
+    [Fact]
+    public async Task UpdateAsync_WhenCalledBySharedUser_ThrowsNotFoundException()
+    {
+        // ARRANGE — görev owner'a ait ama shared user güncelliyor
+        var sharedUserId = Guid.NewGuid();
+        var todoItem = CreateSampleTodoItem(_ownerId);
+        todoItem.TaskShares.Add(new TaskShare { TaskId = todoItem.Id, UserId = sharedUserId });
+
+        _mockRepo
+            .Setup(r => r.GetByIdAsync(todoItem.Id))
+            .ReturnsAsync(todoItem);
+
+        var request = new UpdateTodoItemRequest { Title = "Updated Title" };
+
+        // ACT & ASSERT — paylaşılan kullanıcı üst görevi güncelleyemez (404 döner)
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => _service.UpdateAsync(sharedUserId, todoItem.Id, request));
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WhenCalledBySharedUser_ThrowsNotFoundException()
+    {
+        // ARRANGE — görev owner'a ait ama shared user tamamlamaya çalışıyor
+        var sharedUserId = Guid.NewGuid();
+        var todoItem = CreateSampleTodoItem(_ownerId);
+        todoItem.TaskShares.Add(new TaskShare { TaskId = todoItem.Id, UserId = sharedUserId });
+
+        _mockRepo
+            .Setup(r => r.GetByIdAsync(todoItem.Id))
+            .ReturnsAsync(todoItem);
+
+        // ACT & ASSERT — paylaşılan kullanıcı üst görevi tamamlayamaz (404 döner)
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => _service.CompleteAsync(sharedUserId, todoItem.Id));
+    }
+
     // --- BR-010: Sadece owner restore edebilir ---
 
     [Fact]
@@ -156,7 +192,7 @@ public class TodoItemServiceTests
         todoItem.DeletedAt = DateTime.UtcNow;
 
         _mockRepo
-            .Setup(r => r.GetByIdAsync(todoItem.Id))
+            .Setup(r => r.GetByIdAsync(todoItem.Id, It.IsAny<bool>()))
             .ReturnsAsync(todoItem);
 
         // ACT
@@ -176,7 +212,7 @@ public class TodoItemServiceTests
         todoItem.IsDeleted = true;
 
         _mockRepo
-            .Setup(r => r.GetByIdAsync(todoItem.Id))
+            .Setup(r => r.GetByIdAsync(todoItem.Id, It.IsAny<bool>()))
             .ReturnsAsync(todoItem);
 
         // ACT & ASSERT — owner olmayan kullanıcı 404 almalı
@@ -192,7 +228,7 @@ public class TodoItemServiceTests
         todoItem.IsDeleted = false;
 
         _mockRepo
-            .Setup(r => r.GetByIdAsync(todoItem.Id))
+            .Setup(r => r.GetByIdAsync(todoItem.Id, It.IsAny<bool>()))
             .ReturnsAsync(todoItem);
 
         // ACT & ASSERT
@@ -210,7 +246,7 @@ public class TodoItemServiceTests
         todoItem.IsDeleted = true;
 
         _mockRepo
-            .Setup(r => r.GetByIdAsync(todoItem.Id))
+            .Setup(r => r.GetByIdAsync(todoItem.Id, It.IsAny<bool>()))
             .ReturnsAsync(todoItem);
 
         // ACT
@@ -229,7 +265,7 @@ public class TodoItemServiceTests
         todoItem.IsDeleted = false;
 
         _mockRepo
-            .Setup(r => r.GetByIdAsync(todoItem.Id))
+            .Setup(r => r.GetByIdAsync(todoItem.Id, It.IsAny<bool>()))
             .ReturnsAsync(todoItem);
 
         // ACT & ASSERT
@@ -245,7 +281,7 @@ public class TodoItemServiceTests
         todoItem.IsDeleted = true;
 
         _mockRepo
-            .Setup(r => r.GetByIdAsync(todoItem.Id))
+            .Setup(r => r.GetByIdAsync(todoItem.Id, It.IsAny<bool>()))
             .ReturnsAsync(todoItem);
 
         // ACT & ASSERT — BR-029 gereği yetkisiz erişimde 404
@@ -260,7 +296,7 @@ public class TodoItemServiceTests
         var nonExistentId = Guid.NewGuid();
 
         _mockRepo
-            .Setup(r => r.GetByIdAsync(nonExistentId))
+            .Setup(r => r.GetByIdAsync(nonExistentId, It.IsAny<bool>()))
             .ReturnsAsync((TodoItem?)null);
 
         // ACT & ASSERT

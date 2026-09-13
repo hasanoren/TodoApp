@@ -98,8 +98,8 @@ public class TodoItemService : ITodoItemService
 
     public async Task PermanentDeleteAsync(Guid userId, Guid todoItemId)
     {
-        // BR-010, BR-029: Sadece owner kalıcı silebilir
-        var todoItem = await _taskAuthorizationService.EnsureOwnerAsync(todoItemId, userId);
+        // BR-010, BR-029: Sadece owner kalıcı silebilir (çöp kutusundaki görevler için includeDeleted: true)
+        var todoItem = await _taskAuthorizationService.EnsureOwnerAsync(todoItemId, userId, includeDeleted: true);
 
         if (!todoItem.IsDeleted)
         {
@@ -112,8 +112,8 @@ public class TodoItemService : ITodoItemService
 
     public async Task<TodoItemResponse> RestoreAsync(Guid userId, Guid todoItemId)
     {
-        // BR-010: Sadece owner restore edebilir
-        var todoItem = await _taskAuthorizationService.EnsureOwnerAsync(todoItemId, userId);
+        // BR-010: Sadece owner restore edebilir (çöp kutusundaki görevler için includeDeleted: true)
+        var todoItem = await _taskAuthorizationService.EnsureOwnerAsync(todoItemId, userId, includeDeleted: true);
 
         if (!todoItem.IsDeleted)
         {

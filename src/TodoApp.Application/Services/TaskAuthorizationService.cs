@@ -19,7 +19,7 @@ public class TaskAuthorizationService : ITaskAuthorizationService
 
     public async Task<TodoItem> EnsureCanReadAsync(Guid taskId, Guid userId, bool allowTrash = false)
     {
-        var task = await _todoItemRepository.GetByIdAsync(taskId);
+        var task = await _todoItemRepository.GetByIdAsync(taskId, includeDeleted: allowTrash);
 
         if (task is null)
         {
@@ -50,14 +50,28 @@ public class TaskAuthorizationService : ITaskAuthorizationService
 
     public async Task<TodoItem> EnsureCanModifyAsync(Guid taskId, Guid userId)
     {
-        // BR-025: Görevi Sahip veya Paylaşılan güncelleyebilir (silinmemiş olmalı)
-        return await EnsureCanReadAsync(taskId, userId, allowTrash: false);
+        var task = await _todoItemRepository.GetByIdAsync(taskId);
+
+        // BR-025, BR-029: YALNIZCA görev sahibi ana görevi güncelleyebilir (silinmemiş olmalı)
+        if (task is null || task.OwnerId != userId || task.IsDeleted)
+        {
+            throw new NotFoundException("Görev bulunamadı.");
+        }
+
+        return task;
     }
 
     public async Task<TodoItem> EnsureCanCompleteAsync(Guid taskId, Guid userId)
     {
-        // BR-025: Görevi Sahip veya Paylaşılan tamamlayabilir (silinmemiş olmalı)
-        return await EnsureCanReadAsync(taskId, userId, allowTrash: false);
+        var task = await _todoItemRepository.GetByIdAsync(taskId);
+
+        // BR-025, BR-029: YALNIZCA görev sahibi ana görevi tamamlayabilir (silinmemiş olmalı)
+        if (task is null || task.OwnerId != userId || task.IsDeleted)
+        {
+            throw new NotFoundException("Görev bulunamadı.");
+        }
+
+        return task;
     }
 
     public async Task<TodoItem> EnsureCanDeleteAsync(Guid taskId, Guid userId)
@@ -73,9 +87,9 @@ public class TaskAuthorizationService : ITaskAuthorizationService
         return task;
     }
 
-    public async Task<TodoItem> EnsureOwnerAsync(Guid taskId, Guid userId)
+    public async Task<TodoItem> EnsureOwnerAsync(Guid taskId, Guid userId, bool includeDeleted = false)
     {
-        var task = await _todoItemRepository.GetByIdAsync(taskId);
+        var task = await _todoItemRepository.GetByIdAsync(taskId, includeDeleted: includeDeleted);
 
         // BR-010, BR-013, BR-030: Mutlak sahiplik doğrulaması
         if (task is null || task.OwnerId != userId)

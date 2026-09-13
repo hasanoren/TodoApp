@@ -11,14 +11,14 @@ public interface ITaskAuthorizationService
     Task<TodoItem> EnsureCanReadAsync(Guid taskId, Guid userId, bool allowTrash = false);
 
     /// <summary>
-    /// BR-025: Kullanıcının görevi düzenleme (başlık, açıklama, tarih) yetkisini doğrular (Sahip veya Paylaşılan).
-    /// Silinmiş görev düzenlenemez (404).
+    /// BR-025, BR-029: Kullanıcının görevi düzenleme (başlık, açıklama, tarih) yetkisini doğrular.
+    /// YALNIZCA görev sahibi (Owner) güncelleyebilir. Paylaşılan veya yabancı kullanıcı 404 alır. Silinmiş görev düzenlenemez (404).
     /// </summary>
     Task<TodoItem> EnsureCanModifyAsync(Guid taskId, Guid userId);
 
     /// <summary>
-    /// BR-025: Kullanıcının görevi tamamlama/açma yetkisini doğrular (Sahip veya Paylaşılan).
-    /// Silinmiş görev tamamlanamaz (404).
+    /// BR-025, BR-029: Kullanıcının görevi tamamlama/açma yetkisini doğrular.
+    /// YALNIZCA görev sahibi (Owner) tamamlayabilir. Paylaşılan veya yabancı kullanıcı 404 alır. Silinmiş görev tamamlanamaz (404).
     /// </summary>
     Task<TodoItem> EnsureCanCompleteAsync(Guid taskId, Guid userId);
 
@@ -32,7 +32,7 @@ public interface ITaskAuthorizationService
     /// BR-010, BR-013, BR-030: Kullanıcının görevin mutlak sahibi (Owner) olduğunu doğrular.
     /// Paylaşım yönetimi, sahiplik devri, geri yükleme ve kalıcı silme için kullanılır.
     /// </summary>
-    Task<TodoItem> EnsureOwnerAsync(Guid taskId, Guid userId);
+    Task<TodoItem> EnsureOwnerAsync(Guid taskId, Guid userId, bool includeDeleted = false);
 
     /// <summary>
     /// BR-012, BR-020: Kullanıcının ana göreve alt görev ekleme veya alt görevleri listeleme yetkisini doğrular (Sahip veya Paylaşılan).

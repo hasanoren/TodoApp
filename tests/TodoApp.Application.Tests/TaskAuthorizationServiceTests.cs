@@ -84,7 +84,7 @@ public class TaskAuthorizationServiceTests
     {
         var task = CreateSampleTask(_ownerId, isDeleted: true);
         task.TaskShares.Add(new TaskShare { TaskId = task.Id, UserId = _sharedUserId });
-        _mockTodoItemRepo.Setup(r => r.GetByIdAsync(task.Id)).ReturnsAsync(task);
+        _mockTodoItemRepo.Setup(r => r.GetByIdAsync(task.Id, It.IsAny<bool>())).ReturnsAsync(task);
 
         var ownerResult = await _authService.EnsureCanReadAsync(task.Id, _ownerId, allowTrash: true);
         Assert.NotNull(ownerResult);
@@ -98,31 +98,49 @@ public class TaskAuthorizationServiceTests
     // ==========================================
 
     [Fact]
-    public async Task EnsureCanModifyAsync_WhenOwnerOrShared_Succeeds()
+    public async Task EnsureCanModifyAsync_WhenOwner_Succeeds()
     {
         var task = CreateSampleTask(_ownerId, isDeleted: false);
-        task.TaskShares.Add(new TaskShare { TaskId = task.Id, UserId = _sharedUserId });
         _mockTodoItemRepo.Setup(r => r.GetByIdAsync(task.Id)).ReturnsAsync(task);
 
         var ownerResult = await _authService.EnsureCanModifyAsync(task.Id, _ownerId);
-        var sharedResult = await _authService.EnsureCanModifyAsync(task.Id, _sharedUserId);
 
         Assert.NotNull(ownerResult);
-        Assert.NotNull(sharedResult);
+        Assert.Equal(task.Id, ownerResult.Id);
     }
 
     [Fact]
-    public async Task EnsureCanCompleteAsync_WhenOwnerOrShared_Succeeds()
+    public async Task EnsureCanModifyAsync_WhenSharedUser_ThrowsNotFoundException()
     {
         var task = CreateSampleTask(_ownerId, isDeleted: false);
         task.TaskShares.Add(new TaskShare { TaskId = task.Id, UserId = _sharedUserId });
         _mockTodoItemRepo.Setup(r => r.GetByIdAsync(task.Id)).ReturnsAsync(task);
 
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => _authService.EnsureCanModifyAsync(task.Id, _sharedUserId));
+    }
+
+    [Fact]
+    public async Task EnsureCanCompleteAsync_WhenOwner_Succeeds()
+    {
+        var task = CreateSampleTask(_ownerId, isDeleted: false);
+        _mockTodoItemRepo.Setup(r => r.GetByIdAsync(task.Id)).ReturnsAsync(task);
+
         var ownerResult = await _authService.EnsureCanCompleteAsync(task.Id, _ownerId);
-        var sharedResult = await _authService.EnsureCanCompleteAsync(task.Id, _sharedUserId);
 
         Assert.NotNull(ownerResult);
-        Assert.NotNull(sharedResult);
+        Assert.Equal(task.Id, ownerResult.Id);
+    }
+
+    [Fact]
+    public async Task EnsureCanCompleteAsync_WhenSharedUser_ThrowsNotFoundException()
+    {
+        var task = CreateSampleTask(_ownerId, isDeleted: false);
+        task.TaskShares.Add(new TaskShare { TaskId = task.Id, UserId = _sharedUserId });
+        _mockTodoItemRepo.Setup(r => r.GetByIdAsync(task.Id)).ReturnsAsync(task);
+
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => _authService.EnsureCanCompleteAsync(task.Id, _sharedUserId));
     }
 
     // ==========================================

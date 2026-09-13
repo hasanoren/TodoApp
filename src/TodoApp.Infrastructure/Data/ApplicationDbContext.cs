@@ -71,6 +71,11 @@ public class ApplicationDbContext : DbContext
             .HasForeignKey(t => t.DeletedByUserId)
             .OnDelete(DeleteBehavior.NoAction);
 
+        // T8.2.1: EF Core Global Query Filter (Soft-Delete)
+        // Silinmiş görevler tüm sorgularda otomatik olarak hariç tutulur
+        modelBuilder.Entity<TodoItem>()
+            .HasQueryFilter(t => !t.IsDeleted);
+
         // SubTask - TodoItem FK ve CASCADE yapılandırması
         // BR-016: TaskId NOT NULL
         // BR-019: Üst görev (hard) silinirse tüm alt görevler de silinir (ON DELETE CASCADE)

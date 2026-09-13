@@ -14,9 +14,16 @@ public class TodoItemRepository : ITodoItemRepository
         _context = context;
     }
 
-    public async Task<TodoItem?> GetByIdAsync(Guid id)
+    public async Task<TodoItem?> GetByIdAsync(Guid id, bool includeDeleted = false)
     {
-        return await _context.TodoItems
+        var query = _context.TodoItems.AsQueryable();
+
+        if (includeDeleted)
+        {
+            query = query.IgnoreQueryFilters();
+        }
+
+        return await query
             .Include(t => t.SubTasks)
             .Include(t => t.TodoItemTags)
                 .ThenInclude(tit => tit.Tag)
@@ -25,13 +32,13 @@ public class TodoItemRepository : ITodoItemRepository
             .FirstOrDefaultAsync(t => t.Id == id);
     }
 
-    // BR-011: Soft-delete edilmiş görevler listelenmez
+    // BR-011: Soft-delete edilmiş görevler Global Query Filter ile otomatik filtrelenir
     // Liste görünümü için hafif sorgu (SubTasks dahil edilmez, sadece Tag'ler ve Paylaşılanlar dahil edilir)
     // Hem kendi görevleri hem kendisiyle paylaşılan görevler gelir
     public async Task<(List<TodoItem> Items, int TotalCount)> GetAccessibleByUserAsync(Guid userId, int page, int pageSize)
     {
         var query = _context.TodoItems
-            .Where(t => (t.OwnerId == userId || t.TaskShares.Any(ts => ts.UserId == userId)) && !t.IsDeleted);
+            .Where(t => t.OwnerId == userId || t.TaskShares.Any(ts => ts.UserId == userId));
 
         var totalCount = await query.CountAsync();
 
@@ -48,10 +55,11 @@ public class TodoItemRepository : ITodoItemRepository
         return (items, totalCount);
     }
 
-    // Çöp kutusu: sadece owner'ın soft-delete edilmiş görevleri
+    // Çöp kutusu: sadece owner'ın soft-delete edilmiş görevleri (IgnoreQueryFilters ile filtre muafiyeti)
     public async Task<(List<TodoItem> Items, int TotalCount)> GetDeletedByOwnerAsync(Guid userId, int page, int pageSize)
     {
         var query = _context.TodoItems
+            .IgnoreQueryFilters()
             .Where(t => t.OwnerId == userId && t.IsDeleted);
 
         var totalCount = await query.CountAsync();
