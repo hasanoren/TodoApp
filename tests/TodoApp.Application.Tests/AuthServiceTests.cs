@@ -1,7 +1,9 @@
+using Microsoft.Extensions.Options;
 using Moq;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces;
 using TodoApp.Application.Services;
+using TodoApp.Application.Settings;
 using TodoApp.Domain.Entities;
 using TodoApp.Domain.Exceptions;
 using Xunit;
@@ -10,6 +12,13 @@ namespace TodoApp.Application.Tests;
 
 public class AuthServiceTests
 {
+    private static IOptions<PasswordResetSettings> DefaultPasswordResetOptions =>
+        Options.Create(new PasswordResetSettings
+        {
+            ExpiryMinutes = 60,
+            ResetUrl = "http://localhost:5240/api/Auth/reset-password"
+        });
+
     [Fact]
     public async Task RegisterAsync_WhenEmailAlreadyExists_ThrowsConflictException()
     {
@@ -40,7 +49,8 @@ public class AuthServiceTests
             mockJwtTokenGenerator.Object,
             mockEmailSender.Object,
             mockPasswordResetTokenRepository.Object,
-            mockPasswordHasher.Object);
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
 
         var registerRequest = new RegisterRequest
         {
@@ -84,7 +94,8 @@ public class AuthServiceTests
             mockJwtTokenGenerator.Object,
             mockEmailSender.Object,
             mockPasswordResetTokenRepository.Object,
-            mockPasswordHasher.Object);
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
 
         var request = new RegisterRequest
         {
@@ -137,7 +148,8 @@ public class AuthServiceTests
             mockJwtTokenGenerator.Object,
             mockEmailSender.Object,
             mockPasswordResetTokenRepository.Object,
-            mockPasswordHasher.Object);
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
 
         var loginRequest = new LoginRequest
         {
@@ -190,7 +202,8 @@ public class AuthServiceTests
             mockJwtTokenGenerator.Object,
             mockEmailSender.Object,
             mockPasswordResetTokenRepository.Object,
-            mockPasswordHasher.Object);
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
 
         var loginRequest = new LoginRequest
         {
@@ -248,7 +261,8 @@ public class AuthServiceTests
             mockJwtTokenGenerator.Object,
             mockEmailSender.Object,
             mockPasswordResetTokenRepository.Object,
-            mockPasswordHasher.Object);
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
 
         var refreshRequest = new RefreshTokenRequest
         {
@@ -308,7 +322,8 @@ public class AuthServiceTests
             mockJwtTokenGenerator.Object,
             mockEmailSender.Object,
             mockPasswordResetTokenRepository.Object,
-            mockPasswordHasher.Object);
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
 
         var refreshRequest = new RefreshTokenRequest
         {
@@ -322,6 +337,94 @@ public class AuthServiceTests
         Assert.Equal("yeni-access-token", result.Token);
         Assert.Equal("yeni-refresh-token", result.RefreshToken);
         Assert.True(validToken.IsRevoked);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WhenUserNotFound_SilentlyReturnsWithoutSendingEmail()
+    {
+        // ARRANGE
+        var mockUserRepository = new Mock<IUserRepository>();
+        mockUserRepository
+            .Setup(repo => repo.GetByEmailAsync("nonexistent@example.com"))
+            .ReturnsAsync((User?)null);
+
+        var mockRefreshTokenRepository = new Mock<IRefreshTokenRepository>();
+        var mockJwtTokenGenerator = new Mock<IJwtTokenGenerator>();
+        var mockEmailSender = new Mock<IEmailSender>();
+        var mockPasswordResetTokenRepository = new Mock<IPasswordResetTokenRepository>();
+        var mockPasswordHasher = new Mock<IPasswordHasher>();
+
+        var authService = new AuthService(
+            mockUserRepository.Object,
+            mockRefreshTokenRepository.Object,
+            mockJwtTokenGenerator.Object,
+            mockEmailSender.Object,
+            mockPasswordResetTokenRepository.Object,
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
+
+        var request = new ForgotPasswordRequest { Email = "nonexistent@example.com" };
+
+        // ACT
+        await authService.ForgotPasswordAsync(request);
+
+        // ASSERT
+        mockEmailSender.Verify(s => s.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        mockPasswordResetTokenRepository.Verify(r => r.AddAsync(It.IsAny<PasswordResetToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WhenUserFound_SendsEmailWithConfiguredResetUrl()
+    {
+        // ARRANGE
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "user@example.com",
+            PasswordHash = "hash",
+            Role = UserRole.User,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var customOptions = Options.Create(new PasswordResetSettings
+        {
+            ExpiryMinutes = 30,
+            ResetUrl = "https://myapp.com/auth/reset"
+        });
+
+        var mockUserRepository = new Mock<IUserRepository>();
+        mockUserRepository.Setup(repo => repo.GetByEmailAsync("user@example.com")).ReturnsAsync(user);
+
+        var mockRefreshTokenRepository = new Mock<IRefreshTokenRepository>();
+        var mockJwtTokenGenerator = new Mock<IJwtTokenGenerator>();
+        mockJwtTokenGenerator.Setup(g => g.GeneratePasswordResetToken()).Returns(("secret-token-xyz", DateTime.UtcNow.AddMinutes(30)));
+
+        var mockEmailSender = new Mock<IEmailSender>();
+        var mockPasswordResetTokenRepository = new Mock<IPasswordResetTokenRepository>();
+        var mockPasswordHasher = new Mock<IPasswordHasher>();
+
+        var authService = new AuthService(
+            mockUserRepository.Object,
+            mockRefreshTokenRepository.Object,
+            mockJwtTokenGenerator.Object,
+            mockEmailSender.Object,
+            mockPasswordResetTokenRepository.Object,
+            mockPasswordHasher.Object,
+            customOptions);
+
+        var request = new ForgotPasswordRequest { Email = "user@example.com" };
+
+        // ACT
+        await authService.ForgotPasswordAsync(request);
+
+        // ASSERT
+        mockPasswordResetTokenRepository.Verify(r => r.AddAsync(It.Is<PasswordResetToken>(t => t.Token == "secret-token-xyz")), Times.Once);
+        mockPasswordResetTokenRepository.Verify(r => r.SaveChangesAsync(), Times.Once);
+        mockEmailSender.Verify(s => s.SendEmailAsync(
+            "user@example.com",
+            "TodoApp - Şifre Sıfırlama",
+            It.Is<string>(body => body.Contains("https://myapp.com/auth/reset?token=secret-token-xyz") && body.Contains("30 dakika"))),
+            Times.Once);
     }
 
     [Fact]
@@ -365,7 +468,8 @@ public class AuthServiceTests
             mockJwtTokenGenerator.Object,
             mockEmailSender.Object,
             mockPasswordResetTokenRepository.Object,
-            mockPasswordHasher.Object);
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
 
         var resetRequest = new ResetPasswordRequest
         {
@@ -419,7 +523,8 @@ public class AuthServiceTests
             mockJwtTokenGenerator.Object,
             mockEmailSender.Object,
             mockPasswordResetTokenRepository.Object,
-            mockPasswordHasher.Object);
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
 
         var resetRequest = new ResetPasswordRequest
         {
@@ -462,7 +567,8 @@ public class AuthServiceTests
             mockJwtTokenGenerator.Object,
             mockEmailSender.Object,
             mockPasswordResetTokenRepository.Object,
-            mockPasswordHasher.Object);
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
 
         var request = new ChangePasswordRequest
         {
@@ -510,7 +616,8 @@ public class AuthServiceTests
             mockJwtTokenGenerator.Object,
             mockEmailSender.Object,
             mockPasswordResetTokenRepository.Object,
-            mockPasswordHasher.Object);
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
 
         var request = new ChangePasswordRequest
         {

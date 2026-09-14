@@ -1,5 +1,7 @@
+using Microsoft.Extensions.Options;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces;
+using TodoApp.Application.Settings;
 using TodoApp.Domain.Entities;
 using TodoApp.Domain.Exceptions;
 
@@ -13,6 +15,7 @@ public class AuthService : IAuthService
     private readonly IEmailSender _emailSender;
     private readonly IPasswordResetTokenRepository _passwordResetTokenRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly PasswordResetSettings _passwordResetSettings;
 
     public AuthService(
         IUserRepository userRepository,
@@ -20,7 +23,8 @@ public class AuthService : IAuthService
         IJwtTokenGenerator jwtTokenGenerator,
         IEmailSender emailSender,
         IPasswordResetTokenRepository passwordResetTokenRepository,
-        IPasswordHasher passwordHasher)
+        IPasswordHasher passwordHasher,
+        IOptions<PasswordResetSettings> passwordResetOptions)
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
@@ -28,6 +32,7 @@ public class AuthService : IAuthService
         _emailSender = emailSender;
         _passwordResetTokenRepository = passwordResetTokenRepository;
         _passwordHasher = passwordHasher;
+        _passwordResetSettings = passwordResetOptions.Value;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -145,7 +150,7 @@ public class AuthService : IAuthService
         await _passwordResetTokenRepository.SaveChangesAsync();
 
         var resetLink =
-     $"http://localhost:5240/api/Auth/reset-password?token={Uri.EscapeDataString(token)}";
+            $"{_passwordResetSettings.ResetUrl}?token={Uri.EscapeDataString(token)}";
 
         var htmlBody = $"""
     <p>Merhaba,</p>
@@ -153,7 +158,7 @@ public class AuthService : IAuthService
     <p>
         <a href="{resetLink}">Şifremi Sıfırla</a>
     </p>
-    <p>Bu link 60 dakika geçerlidir.</p>
+    <p>Bu link {_passwordResetSettings.ExpiryMinutes} dakika geçerlidir.</p>
     """;
 
         await _emailSender.SendEmailAsync(
