@@ -12,20 +12,22 @@ public class AuthService : IAuthService
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
     private readonly IEmailSender _emailSender;
     private readonly IPasswordResetTokenRepository _passwordResetTokenRepository;
+    private readonly IPasswordHasher _passwordHasher;
 
     public AuthService(
         IUserRepository userRepository,
         IRefreshTokenRepository refreshTokenRepository,
         IJwtTokenGenerator jwtTokenGenerator,
         IEmailSender emailSender,
-        IPasswordResetTokenRepository passwordResetTokenRepository)
+        IPasswordResetTokenRepository passwordResetTokenRepository,
+        IPasswordHasher passwordHasher)
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
         _jwtTokenGenerator = jwtTokenGenerator;
         _emailSender = emailSender;
         _passwordResetTokenRepository = passwordResetTokenRepository;
-        // _configuration kaldırıldı — artık hiç kullanılmıyor
+        _passwordHasher = passwordHasher;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -40,7 +42,7 @@ public class AuthService : IAuthService
         {
             Id = Guid.NewGuid(),
             Email = request.Email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            PasswordHash = _passwordHasher.HashPassword(request.Password),
             Role = UserRole.User,
             CreatedAt = DateTime.UtcNow
         };
@@ -54,7 +56,7 @@ public class AuthService : IAuthService
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
     {
         var user = await _userRepository.GetByEmailAsync(request.Email);
-        if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        if (user is null || !_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
         {
             throw new ValidationException("E-posta veya şifre hatalı.");
         }
@@ -169,7 +171,7 @@ public class AuthService : IAuthService
             throw new ValidationException("Geçersiz veya süresi dolmuş sıfırlama bağlantısı.");
         }
 
-        storedToken.User.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        storedToken.User.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
         storedToken.IsUsed = true;
 
         await _passwordResetTokenRepository.SaveChangesAsync();
@@ -186,7 +188,7 @@ public class AuthService : IAuthService
             throw new ValidationException("Kullanıcı bulunamadı.");
         }
 
-        var isPasswordCorrect = BCrypt.Net.BCrypt.Verify(
+        var isPasswordCorrect = _passwordHasher.VerifyPassword(
             request.CurrentPassword,
             user.PasswordHash);
 
@@ -196,7 +198,7 @@ public class AuthService : IAuthService
         }
 
         user.PasswordHash =
-            BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            _passwordHasher.HashPassword(request.NewPassword);
 
         // Kullanıcının tüm refresh tokenlarını geçersiz hale getir
         foreach (var refreshToken in user.RefreshTokens)
