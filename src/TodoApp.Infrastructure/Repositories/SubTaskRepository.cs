@@ -26,6 +26,7 @@ public class SubTaskRepository : ISubTaskRepository
     public async Task<List<SubTask>> GetByTaskIdAsync(Guid taskId)
     {
         return await _context.SubTasks
+            .AsNoTracking()
             .Where(st => st.TaskId == taskId)
             .OrderBy(st => st.CreatedAt)
             .ToListAsync();

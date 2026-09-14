@@ -38,6 +38,7 @@ public class TodoItemRepository : ITodoItemRepository
     public async Task<(List<TodoItem> Items, int TotalCount)> GetAccessibleByUserAsync(Guid userId, int page, int pageSize)
     {
         var query = _context.TodoItems
+            .AsNoTracking()
             .Where(t => t.OwnerId == userId || t.TaskShares.Any(ts => ts.UserId == userId));
 
         var totalCount = await query.CountAsync();
@@ -60,6 +61,7 @@ public class TodoItemRepository : ITodoItemRepository
     {
         var query = _context.TodoItems
             .IgnoreQueryFilters()
+            .AsNoTracking()
             .Where(t => t.OwnerId == userId && t.IsDeleted);
 
         var totalCount = await query.CountAsync();

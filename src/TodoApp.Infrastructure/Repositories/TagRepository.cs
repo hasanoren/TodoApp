@@ -30,6 +30,7 @@ public class TagRepository : ITagRepository
     public async Task<List<Tag>> GetAllAsync()
     {
         return await _context.Tags
+            .AsNoTracking()
             .OrderBy(t => t.Name)
             .ToListAsync();
     }
@@ -37,6 +38,7 @@ public class TagRepository : ITagRepository
     public async Task<List<Tag>> GetTagsByTodoItemIdAsync(Guid todoItemId)
     {
         return await _context.TodoItemTags
+            .AsNoTracking()
             .Where(tit => tit.TodoItemId == todoItemId)
             .Select(tit => tit.Tag)
             .OrderBy(t => t.Name)
@@ -46,6 +48,7 @@ public class TagRepository : ITagRepository
     public async Task<(List<TodoItem> Items, int TotalCount)> GetTodoItemsByTagIdAsync(Guid userId, Guid tagId, int page, int pageSize)
     {
         var query = _context.TodoItemTags
+            .AsNoTracking()
             .Where(tit => tit.TagId == tagId && tit.TodoItem.OwnerId == userId && !tit.TodoItem.IsDeleted);
 
         var totalCount = await query.CountAsync();

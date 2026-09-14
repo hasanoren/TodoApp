@@ -26,6 +26,7 @@ public class OwnershipTransferRequestRepository : IOwnershipTransferRequestRepos
     public async Task<List<OwnershipTransferRequest>> GetPendingByToUserIdAsync(Guid toUserId)
     {
         return await _context.OwnershipTransferRequests
+            .AsNoTracking()
             .Include(r => r.Task)
             .Include(r => r.FromUser)
             .Include(r => r.ToUser)

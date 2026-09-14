@@ -24,6 +24,7 @@ public class TaskShareRepository : ITaskShareRepository
     public async Task<List<TaskShare>> GetByTaskIdAsync(Guid taskId)
     {
         return await _context.TaskShares
+            .AsNoTracking()
             .Include(ts => ts.User)
             .Where(ts => ts.TaskId == taskId)
             .OrderBy(ts => ts.SharedAt)
