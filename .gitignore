@@ -18,16 +18,12 @@ out/
 ## Rider
 .idea/
 
-## appsettings — hassas bilgi içerebilir (connection string, JWT key)
-appsettings.Development.json
-appsettings.Production.json
+## appsettings — hassas bilgi içerir (connection string, JWT key, SMTP şifresi)
+appsettings.json
+appsettings.*.json
+!appsettings.Example.json
 *.env
 
 ## Diğer
 *.log
 .DS_Store
-
-## appsettings — hassas bilgi içerir (connection string, JWT key, SMTP şifresi)
-appsettings.json
-appsettings.Development.json
-appsettings.Production.json
