@@ -60,10 +60,19 @@ builder.Services.AddScoped<TodoApp.Application.Interfaces.ITaskShareService, Tod
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ITaskAuthorizationService, TodoApp.Application.Services.TaskAuthorizationService>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.IOwnershipTransferRequestRepository, TodoApp.Infrastructure.Repositories.OwnershipTransferRequestRepository>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ITaskTransferService, TodoApp.Application.Services.TaskTransferService>();
-// ---- YENİ: JWT Authentication yapılandırması ----
-var jwtKey = builder.Configuration["Jwt:Key"]!;
-var jwtIssuer = builder.Configuration["Jwt:Issuer"];
-var jwtAudience = builder.Configuration["Jwt:Audience"];
+
+// ---- T8.2.2: Strongly-Typed Options Pattern ----
+builder.Services.Configure<TodoApp.Application.Settings.JwtSettings>(
+    builder.Configuration.GetSection(TodoApp.Application.Settings.JwtSettings.SectionName));
+builder.Services.Configure<TodoApp.Application.Settings.SmtpSettings>(
+    builder.Configuration.GetSection(TodoApp.Application.Settings.SmtpSettings.SectionName));
+builder.Services.Configure<TodoApp.Application.Settings.PasswordResetSettings>(
+    builder.Configuration.GetSection(TodoApp.Application.Settings.PasswordResetSettings.SectionName));
+
+var jwtSettings = builder.Configuration
+    .GetSection(TodoApp.Application.Settings.JwtSettings.SectionName)
+    .Get<TodoApp.Application.Settings.JwtSettings>()
+    ?? throw new InvalidOperationException("Jwt configuration section is missing.");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -74,9 +83,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtIssuer,
-            ValidAudience = jwtAudience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+            ValidIssuer = jwtSettings.Issuer,
+            ValidAudience = jwtSettings.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key))
         };
     });
 

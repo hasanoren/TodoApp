@@ -1,17 +1,18 @@
 using MailKit.Net.Smtp;
 using MimeKit;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using TodoApp.Application.Interfaces;
+using TodoApp.Application.Settings;
 
 namespace TodoApp.Infrastructure.Services;
 
 public class EmailSender : IEmailSender
 {
-    private readonly IConfiguration _configuration;
+    private readonly SmtpSettings _smtpSettings;
 
-    public EmailSender(IConfiguration configuration)
+    public EmailSender(IOptions<SmtpSettings> smtpOptions)
     {
-        _configuration = configuration;
+        _smtpSettings = smtpOptions.Value;
     }
 
     public async Task SendEmailAsync(
@@ -22,8 +23,8 @@ public class EmailSender : IEmailSender
         var message = new MimeMessage();
 
         message.From.Add(new MailboxAddress(
-            _configuration["Smtp:FromName"],
-            _configuration["Smtp:FromEmail"]));
+            _smtpSettings.FromName,
+            _smtpSettings.FromEmail));
 
         message.To.Add(new MailboxAddress("", toEmail));
 
@@ -38,13 +39,13 @@ public class EmailSender : IEmailSender
         using var client = new SmtpClient();
 
         await client.ConnectAsync(
-            _configuration["Smtp:Host"],
-            int.Parse(_configuration["Smtp:Port"]!),
+            _smtpSettings.Host,
+            _smtpSettings.Port,
             MailKit.Security.SecureSocketOptions.StartTls);
 
         await client.AuthenticateAsync(
-            _configuration["Smtp:Username"],
-            _configuration["Smtp:Password"]);
+            _smtpSettings.Username,
+            _smtpSettings.Password);
 
         await client.SendAsync(message);
 
