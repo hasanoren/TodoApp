@@ -1,5 +1,7 @@
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
 using TodoApp.Domain.Exceptions;
 
@@ -7,6 +9,12 @@ namespace TodoApp.Api.Middleware;
 
 public class ExceptionHandlingMiddleware
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionHandlingMiddleware> _logger;
     private readonly IHostEnvironment _environment;
@@ -25,7 +33,7 @@ public class ExceptionHandlingMiddleware
     {
         try
         {
-            await _next(context);   // sıradaki middleware'i / Controller'ı çalıştır
+            await _next(context);
         }
         catch (Exception ex)
         {
@@ -36,31 +44,68 @@ public class ExceptionHandlingMiddleware
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        var statusCode = exception switch
+        var (statusCode, title, type) = exception switch
         {
-            UnauthorizedAccessException => HttpStatusCode.Unauthorized, // 401
-            ValidationException => HttpStatusCode.BadRequest,           // 400
-            ForbiddenException => HttpStatusCode.Forbidden,             // 403
-            NotFoundException => HttpStatusCode.NotFound,               // 404
-            ConflictException => HttpStatusCode.Conflict,               // 409
-            _ => HttpStatusCode.InternalServerError                      // 500 — beklenmeyen her şey
+            UnauthorizedAccessException => (
+                HttpStatusCode.Unauthorized,
+                "Yetkilendirme Hatası",
+                "https://tools.ietf.org/html/rfc9110#section-15.5.2"),
+
+            ValidationException => (
+                HttpStatusCode.BadRequest,
+                "Geçersiz İstek",
+                "https://tools.ietf.org/html/rfc9110#section-15.5.1"),
+
+            ForbiddenException => (
+                HttpStatusCode.Forbidden,
+                "Erişim Reddedildi",
+                "https://tools.ietf.org/html/rfc9110#section-15.5.4"),
+
+            NotFoundException => (
+                HttpStatusCode.NotFound,
+                "Kayıt Bulunamadı",
+                "https://tools.ietf.org/html/rfc9110#section-15.5.5"),
+
+            ConflictException => (
+                HttpStatusCode.Conflict,
+                "Çakışma Hatası",
+                "https://tools.ietf.org/html/rfc9110#section-15.5.10"),
+
+            _ => (
+                HttpStatusCode.InternalServerError,
+                "Sunucu Hatası",
+                "https://tools.ietf.org/html/rfc9110#section-15.6.1")
         };
 
-        context.Response.ContentType = "application/json";
+        var isServerError = statusCode == HttpStatusCode.InternalServerError;
+        var detail = isServerError && !_environment.IsDevelopment()
+            ? "Beklenmeyen bir sunucu hatası oluştu."
+            : exception.Message;
+
+        var problemDetails = new ProblemDetails
+        {
+            Type = type,
+            Title = title,
+            Status = (int)statusCode,
+            Detail = detail,
+            Instance = context.Request.Path
+        };
+
+        problemDetails.Extensions["traceId"] = context.TraceIdentifier;
+
+        if (isServerError && _environment.IsDevelopment())
+        {
+            problemDetails.Extensions["stackTrace"] = exception.StackTrace;
+        }
+
+        if (exception is ValidationException valEx && valEx.Errors?.Count > 0)
+        {
+            problemDetails.Extensions["errors"] = valEx.Errors;
+        }
+
+        context.Response.ContentType = "application/problem+json";
         context.Response.StatusCode = (int)statusCode;
 
-        object response;
-        if (statusCode == HttpStatusCode.InternalServerError)
-        {
-            response = _environment.IsDevelopment()
-                ? new { message = exception.Message, detail = exception.StackTrace }
-                : new { message = "Beklenmeyen bir hata oluştu." };
-        }
-        else
-        {
-            response = new { message = exception.Message };
-        }
-
-        await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+        await context.Response.WriteAsync(JsonSerializer.Serialize(problemDetails, JsonOptions));
     }
 }

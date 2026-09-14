@@ -27,5 +27,12 @@ public class ForbiddenException : DomainException
 // Geçersiz istek/validasyon hatası (BR-004, BR-027 gibi) → 400 Bad Request
 public class ValidationException : DomainException
 {
+    public IDictionary<string, string[]>? Errors { get; }
+
     public ValidationException(string message) : base(message) { }
+
+    public ValidationException(string message, IDictionary<string, string[]> errors) : base(message)
+    {
+        Errors = errors;
+    }
 }

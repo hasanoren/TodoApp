@@ -6,6 +6,7 @@ using TodoApp.Infrastructure.Data;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using TodoApp.Api.Middleware;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi;
 using FluentValidation;
 using FluentValidation.AspNetCore;
@@ -15,6 +16,26 @@ using TodoApp.Application.Validators;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var problemDetails = new ValidationProblemDetails(context.ModelState)
+        {
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+            Title = "Doğrulama Hatası",
+            Status = StatusCodes.Status400BadRequest,
+            Detail = "Bir veya daha fazla alanda doğrulama hatası oluştu.",
+            Instance = context.HttpContext.Request.Path
+        };
+        problemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
+
+        return new BadRequestObjectResult(problemDetails)
+        {
+            ContentTypes = { "application/problem+json" }
+        };
+    };
+});
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 builder.Services.AddEndpointsApiExplorer();
