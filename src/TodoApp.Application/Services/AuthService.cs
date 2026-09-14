@@ -58,10 +58,18 @@ public class AuthService : IAuthService
         return await GenerateAuthResponseAsync(user);
     }
 
+    // Zamanlama saldırılarını (timing attack / account enumeration) engellemek için sahte BCrypt hash'i
+    private const string DummyHash = "$2a$11$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
+
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
     {
         var user = await _userRepository.GetByEmailAsync(request.Email);
-        if (user is null || !_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
+
+        // Kullanıcı bulunamasa dahi sahte hash ile doğrulama çalıştırılarak süre eşitlenir
+        var passwordHash = user?.PasswordHash ?? DummyHash;
+        var isPasswordValid = _passwordHasher.VerifyPassword(request.Password, passwordHash);
+
+        if (user is null || !isPasswordValid)
         {
             throw new ValidationException("E-posta veya şifre hatalı.");
         }
@@ -178,6 +186,12 @@ public class AuthService : IAuthService
 
         storedToken.User.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
         storedToken.IsUsed = true;
+
+        // Güvenlik (T8.1.6): Şifre sıfırlandığında tüm açık oturumları geçersiz kıl
+        foreach (var refreshToken in storedToken.User.RefreshTokens)
+        {
+            refreshToken.IsRevoked = true;
+        }
 
         await _passwordResetTokenRepository.SaveChangesAsync();
     }

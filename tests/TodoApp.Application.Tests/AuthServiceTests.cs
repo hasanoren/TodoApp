@@ -163,6 +163,46 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task LoginAsync_WhenUserNotFound_ExecutesDummyPasswordVerificationToPreventTimingAttackAndThrowsValidationException()
+    {
+        // ARRANGE: User does NOT exist in DB
+        var mockUserRepository = new Mock<IUserRepository>();
+        mockUserRepository
+            .Setup(repo => repo.GetByEmailAsync("notfound@example.com"))
+            .ReturnsAsync((User?)null);
+
+        var mockRefreshTokenRepository = new Mock<IRefreshTokenRepository>();
+        var mockJwtTokenGenerator = new Mock<IJwtTokenGenerator>();
+        var mockEmailSender = new Mock<IEmailSender>();
+        var mockPasswordResetTokenRepository = new Mock<IPasswordResetTokenRepository>();
+        var mockPasswordHasher = new Mock<IPasswordHasher>();
+
+        var authService = new AuthService(
+            mockUserRepository.Object,
+            mockRefreshTokenRepository.Object,
+            mockJwtTokenGenerator.Object,
+            mockEmailSender.Object,
+            mockPasswordResetTokenRepository.Object,
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
+
+        var loginRequest = new LoginRequest
+        {
+            Email = "notfound@example.com",
+            Password = "SomePassword123!"
+        };
+
+        // ACT & ASSERT
+        await Assert.ThrowsAsync<ValidationException>(
+            () => authService.LoginAsync(loginRequest));
+
+        // ASSERT: Zamanlama saldırısını önlemek için DummyHash ile doğrulamanın MUTLAKA çağrıldığını teyit et
+        mockPasswordHasher.Verify(
+            hasher => hasher.VerifyPassword("SomePassword123!", It.Is<string>(h => h.StartsWith("$2a$11$"))),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task LoginAsync_WhenPasswordIsCorrect_ReturnsAuthResponse()
     {
         // ARRANGE
@@ -535,6 +575,72 @@ public class AuthServiceTests
         // ACT & ASSERT
         await Assert.ThrowsAsync<ValidationException>(
             () => authService.ResetPasswordAsync(resetRequest));
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WhenValid_HashesNewPasswordAndRevokesAllRefreshTokens()
+    {
+        // ARRANGE
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "test@example.com",
+            PasswordHash = "old-hash",
+            Role = UserRole.User,
+            CreatedAt = DateTime.UtcNow,
+            RefreshTokens = new List<RefreshToken>
+            {
+                new() { Id = Guid.NewGuid(), Token = "rt1", IsRevoked = false, ExpiresAt = DateTime.UtcNow.AddDays(1) },
+                new() { Id = Guid.NewGuid(), Token = "rt2", IsRevoked = false, ExpiresAt = DateTime.UtcNow.AddDays(2) }
+            }
+        };
+
+        var validResetToken = new PasswordResetToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            User = user,
+            Token = "valid-reset-token",
+            ExpiresAt = DateTime.UtcNow.AddMinutes(30),
+            IsUsed = false,
+            CreatedAt = DateTime.UtcNow.AddMinutes(-5)
+        };
+
+        var mockPasswordResetTokenRepository = new Mock<IPasswordResetTokenRepository>();
+        mockPasswordResetTokenRepository
+            .Setup(repo => repo.GetByTokenAsync("valid-reset-token"))
+            .ReturnsAsync(validResetToken);
+
+        var mockUserRepository = new Mock<IUserRepository>();
+        var mockRefreshTokenRepository = new Mock<IRefreshTokenRepository>();
+        var mockJwtTokenGenerator = new Mock<IJwtTokenGenerator>();
+        var mockEmailSender = new Mock<IEmailSender>();
+        var mockPasswordHasher = new Mock<IPasswordHasher>();
+        mockPasswordHasher.Setup(h => h.HashPassword("BrandNewPassword123!")).Returns("new-hashed-password");
+
+        var authService = new AuthService(
+            mockUserRepository.Object,
+            mockRefreshTokenRepository.Object,
+            mockJwtTokenGenerator.Object,
+            mockEmailSender.Object,
+            mockPasswordResetTokenRepository.Object,
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
+
+        var resetRequest = new ResetPasswordRequest
+        {
+            Token = "valid-reset-token",
+            NewPassword = "BrandNewPassword123!"
+        };
+
+        // ACT
+        await authService.ResetPasswordAsync(resetRequest);
+
+        // ASSERT
+        Assert.Equal("new-hashed-password", user.PasswordHash);
+        Assert.True(validResetToken.IsUsed);
+        Assert.All(user.RefreshTokens, rt => Assert.True(rt.IsRevoked));
+        mockPasswordResetTokenRepository.Verify(repo => repo.SaveChangesAsync(), Times.Once);
     }
 
     [Fact]

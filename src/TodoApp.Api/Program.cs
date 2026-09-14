@@ -122,6 +122,7 @@ if (app.Environment.IsDevelopment())
 
 }
 app.UseMiddleware<ExceptionHandlingMiddleware>();   // ---- YENİ: en başta olmalı ----
+app.UseMiddleware<SecurityHeadersMiddleware>();
 
 app.UseHttpsRedirection();
 

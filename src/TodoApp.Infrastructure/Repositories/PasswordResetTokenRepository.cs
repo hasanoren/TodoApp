@@ -23,6 +23,7 @@ public class PasswordResetTokenRepository : IPasswordResetTokenRepository
     {
         return await _context.PasswordResetTokens
             .Include(t => t.User)
+                .ThenInclude(u => u.RefreshTokens)
             .FirstOrDefaultAsync(t => t.Token == token);
     }
 
