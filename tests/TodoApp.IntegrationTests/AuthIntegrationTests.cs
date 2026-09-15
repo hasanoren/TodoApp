@@ -2,17 +2,23 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using TodoApp.Application.Common;
 using TodoApp.Application.DTOs;
+using TodoApp.Infrastructure.Data;
 using Xunit;
 
 namespace TodoApp.IntegrationTests;
 
 public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>
 {
+    private readonly CustomWebApplicationFactory _factory;
     private readonly HttpClient _client;
 
     public AuthIntegrationTests(CustomWebApplicationFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
     }
 
@@ -105,5 +111,42 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>
 
         var secondResponse = await _client.PostAsJsonAsync("/api/Auth/register", request);
         Assert.Equal(HttpStatusCode.Conflict, secondResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task RefreshToken_IsStoredAsSha256HashInDatabase()
+    {
+        // 1. REGISTER
+        var email = $"token_hash_{Guid.NewGuid():N}@example.com";
+        var password = "Password123!";
+        var registerRequest = new RegisterRequest { Email = email, Password = password };
+
+        var registerResponse = await _client.PostAsJsonAsync("/api/Auth/register", registerRequest);
+        Assert.Equal(HttpStatusCode.OK, registerResponse.StatusCode);
+
+        var authResult = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        Assert.NotNull(authResult);
+        var plainRefreshToken = authResult.RefreshToken;
+        Assert.False(string.IsNullOrWhiteSpace(plainRefreshToken));
+
+        // 2. DB'DEKİ TOKENI KONTROL ET
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var dbToken = await db.RefreshTokens.FirstOrDefaultAsync(rt => rt.UserId == authResult.UserId);
+
+        Assert.NotNull(dbToken);
+        // Veritabanında düz metin saklanmamalı (T8.1.7)
+        Assert.NotEqual(plainRefreshToken, dbToken.Token);
+        // Veritabanındaki değer, düz metnin SHA-256 hash'i olmalı
+        Assert.Equal(TokenHelper.HashToken(plainRefreshToken), dbToken.Token);
+
+        // 3. REFRESH İŞLEMİNİN DÜZ METİN TOKEN İLE ÇALIŞTIĞINI DOĞRULA
+        var refreshResponse = await _client.PostAsJsonAsync("/api/Auth/refresh", new RefreshTokenRequest
+        {
+            RefreshToken = plainRefreshToken
+        });
+        Assert.Equal(HttpStatusCode.OK, refreshResponse.StatusCode);
     }
 }

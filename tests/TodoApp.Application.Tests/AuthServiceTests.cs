@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using Moq;
+using TodoApp.Application.Common;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces;
 using TodoApp.Application.Services;
@@ -286,7 +287,7 @@ public class AuthServiceTests
 
         var mockRefreshTokenRepository = new Mock<IRefreshTokenRepository>();
         mockRefreshTokenRepository
-            .Setup(repo => repo.GetByTokenAsync("eski-bir-token-degeri"))
+            .Setup(repo => repo.GetByTokenAsync(TokenHelper.HashToken("eski-bir-token-degeri")))
             .ReturnsAsync(expiredToken);
 
         var mockUserRepository = new Mock<IUserRepository>();
@@ -332,7 +333,7 @@ public class AuthServiceTests
             Id = Guid.NewGuid(),
             UserId = user.Id,
             User = user,
-            Token = "gecerli-token",
+            Token = TokenHelper.HashToken("gecerli-token"),
             ExpiresAt = DateTime.UtcNow.AddDays(5),
             IsRevoked = false,
             CreatedAt = DateTime.UtcNow
@@ -340,7 +341,7 @@ public class AuthServiceTests
 
         var mockRefreshTokenRepository = new Mock<IRefreshTokenRepository>();
         mockRefreshTokenRepository
-            .Setup(repo => repo.GetByTokenAsync("gecerli-token"))
+            .Setup(repo => repo.GetByTokenAsync(TokenHelper.HashToken("gecerli-token")))
             .ReturnsAsync(validToken);
 
         var mockJwtTokenGenerator = new Mock<IJwtTokenGenerator>();
@@ -377,6 +378,93 @@ public class AuthServiceTests
         Assert.Equal("yeni-access-token", result.Token);
         Assert.Equal("yeni-refresh-token", result.RefreshToken);
         Assert.True(validToken.IsRevoked);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_StoresHashedRefreshTokenInRepository_AndReturnsPlainTextToken()
+    {
+        // ARRANGE
+        var mockUserRepository = new Mock<IUserRepository>();
+        mockUserRepository.Setup(r => r.GetByEmailAsync(It.IsAny<string>())).ReturnsAsync((User?)null);
+
+        RefreshToken? savedRefreshToken = null;
+        var mockRefreshTokenRepository = new Mock<IRefreshTokenRepository>();
+        mockRefreshTokenRepository
+            .Setup(r => r.AddAsync(It.IsAny<RefreshToken>()))
+            .Callback<RefreshToken>(rt => savedRefreshToken = rt);
+
+        var mockJwtTokenGenerator = new Mock<IJwtTokenGenerator>();
+        mockJwtTokenGenerator.Setup(g => g.GenerateToken(It.IsAny<User>())).Returns("jwt-access-token");
+        const string rawRefreshToken = "plain-random-refresh-token-12345";
+        mockJwtTokenGenerator.Setup(g => g.GenerateRefreshToken())
+            .Returns((rawRefreshToken, DateTime.UtcNow.AddDays(7)));
+
+        var mockPasswordHasher = new Mock<IPasswordHasher>();
+        mockPasswordHasher.Setup(h => h.HashPassword(It.IsAny<string>())).Returns("hashed-pw");
+
+        var authService = new AuthService(
+            mockUserRepository.Object,
+            mockRefreshTokenRepository.Object,
+            mockJwtTokenGenerator.Object,
+            Mock.Of<IEmailSender>(),
+            Mock.Of<IPasswordResetTokenRepository>(),
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
+
+        var request = new RegisterRequest { Email = "hash_test@example.com", Password = "Password123!" };
+
+        // ACT
+        var response = await authService.RegisterAsync(request);
+
+        // ASSERT
+        // Kullanıcıya açık metin token dönmeli
+        Assert.Equal(rawRefreshToken, response.RefreshToken);
+
+        // Veritabanına kaydedilen token açık metin OLMAMALI, SHA-256 hash'i olmalı (T8.1.7)
+        Assert.NotNull(savedRefreshToken);
+        Assert.NotEqual(rawRefreshToken, savedRefreshToken.Token);
+        Assert.Equal(TokenHelper.HashToken(rawRefreshToken), savedRefreshToken.Token);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_HashesRefreshTokenBeforeQueryingRepository()
+    {
+        // ARRANGE
+        const string rawRefreshToken = "user-active-refresh-token";
+        var hashedToken = TokenHelper.HashToken(rawRefreshToken);
+
+        var storedRefreshToken = new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            Token = hashedToken,
+            ExpiresAt = DateTime.UtcNow.AddDays(7),
+            IsRevoked = false
+        };
+
+        var mockRefreshTokenRepository = new Mock<IRefreshTokenRepository>();
+        mockRefreshTokenRepository
+            .Setup(r => r.GetByTokenAsync(hashedToken))
+            .ReturnsAsync(storedRefreshToken);
+
+        var authService = new AuthService(
+            Mock.Of<IUserRepository>(),
+            mockRefreshTokenRepository.Object,
+            Mock.Of<IJwtTokenGenerator>(),
+            Mock.Of<IEmailSender>(),
+            Mock.Of<IPasswordResetTokenRepository>(),
+            Mock.Of<IPasswordHasher>(),
+            DefaultPasswordResetOptions);
+
+        var request = new RefreshTokenRequest { RefreshToken = rawRefreshToken };
+
+        // ACT
+        await authService.LogoutAsync(request);
+
+        // ASSERT
+        // Repo'ya ham token yerine SHA-256 hash ile sorgu yapılmış olmalı
+        mockRefreshTokenRepository.Verify(r => r.GetByTokenAsync(hashedToken), Times.Once);
+        mockRefreshTokenRepository.Verify(r => r.GetByTokenAsync(rawRefreshToken), Times.Never);
+        Assert.True(storedRefreshToken.IsRevoked);
     }
 
     [Fact]

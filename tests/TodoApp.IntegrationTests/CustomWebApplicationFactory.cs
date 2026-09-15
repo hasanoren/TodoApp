@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -41,6 +42,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 options.UseInternalServiceProvider(internalServiceProvider);
             });
 
+            // Entegrasyon testlerinde rate limit çakışmalarını önlemek için:
+            // İstekte özel bir X-Forwarded-For belirtilmemişse her isteğe izole IP ata.
+            services.AddTransient<IStartupFilter, TestRateLimitBypassStartupFilter>();
+
             var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
             var scopedServices = scope.ServiceProvider;
@@ -53,6 +58,25 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         base.Dispose(disposing);
         _connection?.Dispose();
+    }
+}
+
+public class TestRateLimitBypassStartupFilter : IStartupFilter
+{
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+    {
+        return app =>
+        {
+            app.Use(async (context, nextMiddleware) =>
+            {
+                if (!context.Request.Headers.ContainsKey("X-Forwarded-For"))
+                {
+                    context.Request.Headers["X-Forwarded-For"] = Guid.NewGuid().ToString("N");
+                }
+                await nextMiddleware();
+            });
+            next(app);
+        };
     }
 }
 

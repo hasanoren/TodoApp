@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using TodoApp.Application.Common;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces;
 using TodoApp.Application.Settings;
@@ -79,7 +80,8 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request)
     {
-        var storedToken = await _refreshTokenRepository.GetByTokenAsync(request.RefreshToken);
+        var tokenHash = TokenHelper.HashToken(request.RefreshToken);
+        var storedToken = await _refreshTokenRepository.GetByTokenAsync(tokenHash);
 
         if (storedToken is null || !storedToken.IsActive)
         {
@@ -100,7 +102,7 @@ public class AuthService : IAuthService
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
-            Token = refreshTokenValue,
+            Token = TokenHelper.HashToken(refreshTokenValue), // Güvenlik (T8.1.7): DB'de SHA-256 hash olarak sakla
             ExpiresAt = expiresAt,
             IsRevoked = false,
             CreatedAt = DateTime.UtcNow
@@ -120,7 +122,8 @@ public class AuthService : IAuthService
 
     public async Task LogoutAsync(RefreshTokenRequest request)
     {
-        var storedToken = await _refreshTokenRepository.GetByTokenAsync(request.RefreshToken);
+        var tokenHash = TokenHelper.HashToken(request.RefreshToken);
+        var storedToken = await _refreshTokenRepository.GetByTokenAsync(tokenHash);
 
         if (storedToken is null)
         {

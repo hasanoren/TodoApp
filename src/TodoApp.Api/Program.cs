@@ -11,6 +11,7 @@ using Microsoft.OpenApi;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using TodoApp.Application.Validators;
+using TodoApp.Api.Extensions;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -90,6 +91,29 @@ builder.Services.Configure<TodoApp.Application.Settings.SmtpSettings>(
     builder.Configuration.GetSection(TodoApp.Application.Settings.SmtpSettings.SectionName));
 builder.Services.Configure<TodoApp.Application.Settings.PasswordResetSettings>(
     builder.Configuration.GetSection(TodoApp.Application.Settings.PasswordResetSettings.SectionName));
+builder.Services.Configure<TodoApp.Application.Settings.CorsSettings>(
+    builder.Configuration.GetSection(TodoApp.Application.Settings.CorsSettings.SectionName));
+
+var corsSettings = builder.Configuration
+    .GetSection(TodoApp.Application.Settings.CorsSettings.SectionName)
+    .Get<TodoApp.Application.Settings.CorsSettings>() ?? new TodoApp.Application.Settings.CorsSettings();
+
+const string corsPolicyName = "AllowFrontend";
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(corsPolicyName, policy =>
+    {
+        var origins = corsSettings.AllowedOrigins.Length > 0
+            ? corsSettings.AllowedOrigins
+            : ["http://localhost:3000", "http://localhost:5173"];
+
+        policy.WithOrigins(origins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
 var jwtSettings = builder.Configuration
     .GetSection(TodoApp.Application.Settings.JwtSettings.SectionName)
@@ -112,6 +136,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddAppRateLimiting();
 
 var app = builder.Build();
 
@@ -125,6 +150,8 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();   // ---- YENİ: en başta olm
 app.UseMiddleware<SecurityHeadersMiddleware>();
 
 app.UseHttpsRedirection();
+app.UseCors(corsPolicyName);
+app.UseRateLimiter();
 
 // ---- YENİ: Authentication, Authorization'dan ÖNCE gelmeli ----
 app.UseAuthentication();
