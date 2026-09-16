@@ -32,7 +32,7 @@ public class TaskSharesController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var result = await _taskShareService.GetSharedUsersAsync(userId, taskId);
-        return Ok(result);
+        return Ok(new CollectionResponse<SharedUserResponse>(result));
     }
 
     // T5.1.6: DELETE /api/todoitems/{taskId}/shares/{userId} — Görev sahibinin paylaşımı kaldırması

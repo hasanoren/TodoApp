@@ -31,7 +31,7 @@ public class TagServiceTests
     {
         // ARRANGE
         _mockTagRepo
-            .Setup(r => r.GetByNameAsync("Backend"))
+            .Setup(r => r.GetByNameAsync("backend"))
             .ReturnsAsync((Tag?)null);
 
         var request = new CreateTagRequest { Name = "Backend" };
@@ -40,8 +40,8 @@ public class TagServiceTests
         var result = await _service.CreateAsync(_adminUserId, request);
 
         // ASSERT
-        Assert.Equal("Backend", result.Name);
-        _mockTagRepo.Verify(r => r.AddAsync(It.Is<Tag>(t => t.Name == "Backend" && t.CreatedByUserId == _adminUserId)), Times.Once);
+        Assert.Equal("backend", result.Name);
+        _mockTagRepo.Verify(r => r.AddAsync(It.Is<Tag>(t => t.Name == "backend" && t.CreatedByUserId == _adminUserId)), Times.Once);
         _mockTagRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
     }
 
@@ -64,7 +64,7 @@ public class TagServiceTests
         var existingTag = new Tag { Id = Guid.NewGuid(), Name = "backend" };
 
         _mockTagRepo
-            .Setup(r => r.GetByNameAsync("BACKEND"))
+            .Setup(r => r.GetByNameAsync("backend"))
             .ReturnsAsync(existingTag);
 
         var request = new CreateTagRequest { Name = "BACKEND" };

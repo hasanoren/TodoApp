@@ -25,10 +25,10 @@ public class TagService : ITagService
             throw new ValidationException("Etiket adı boş olamaz.");
         }
 
-        var trimmedName = request.Name.Trim();
+        var normalizedName = request.Name.Trim().ToLowerInvariant();
 
-        // BR-021: Case-insensitive unique kontrolü
-        var existingTag = await _tagRepository.GetByNameAsync(trimmedName);
+        // BR-021: Case-insensitive unique kontrolü (Audit #13: Ingestion-time lowercase normalization)
+        var existingTag = await _tagRepository.GetByNameAsync(normalizedName);
         if (existingTag is not null)
         {
             throw new ConflictException("Bu isimde bir etiket zaten mevcut.");
@@ -37,7 +37,7 @@ public class TagService : ITagService
         var tag = new Tag
         {
             Id = Guid.NewGuid(),
-            Name = trimmedName,
+            Name = normalizedName,
             CreatedByUserId = createdByUserId,
             CreatedAt = DateTime.UtcNow
         };

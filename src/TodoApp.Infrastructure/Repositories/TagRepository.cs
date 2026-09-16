@@ -21,10 +21,10 @@ public class TagRepository : ITagRepository
 
     public async Task<Tag?> GetByNameAsync(string name)
     {
-        // BR-021: Case-insensitive etiket arama
-        var normalized = name.Trim().ToLower();
+        // BR-021: Case-insensitive etiket arama (Audit #13: Sargable Index Seek with normalized lower)
+        var normalized = name.Trim().ToLowerInvariant();
         return await _context.Tags
-            .FirstOrDefaultAsync(t => t.Name.ToLower() == normalized);
+            .FirstOrDefaultAsync(t => t.Name == normalized);
     }
 
     public async Task<List<Tag>> GetAllAsync()

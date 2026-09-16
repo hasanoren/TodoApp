@@ -32,7 +32,7 @@ public class TagsController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var result = await _tagService.GetAllAsync();
-        return Ok(result);
+        return Ok(new CollectionResponse<TagResponse>(result));
     }
 
     // GET /api/todoitems/{taskId}/tags — Bir göreve atanmış etiketleri listeleme
@@ -41,7 +41,7 @@ public class TagsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var result = await _tagService.GetTagsByTaskIdAsync(userId, taskId);
-        return Ok(result);
+        return Ok(new CollectionResponse<TagResponse>(result));
     }
 
     // GET /api/tags/{tagId}/todoitems — Belirli bir etikete sahip aktif görevleri listeleme

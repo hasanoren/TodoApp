@@ -32,7 +32,7 @@ public class SubTasksController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var result = await _subTaskService.GetByTaskIdAsync(userId, taskId);
-        return Ok(result);
+        return Ok(new CollectionResponse<SubTaskResponse>(result));
     }
 
     // T3.1.4: PATCH /api/subtasks/{id}/complete — Alt görevi tamamlama/açma

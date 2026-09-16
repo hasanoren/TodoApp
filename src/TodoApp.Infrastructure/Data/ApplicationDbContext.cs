@@ -24,79 +24,92 @@ public class ApplicationDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<User>()
-            .HasIndex(u => u.Email)
-            .IsUnique();
+        // User yapılandırması (BR-001 & T8.2.6: MaxLength)
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasIndex(u => u.Email).IsUnique();
+            entity.Property(u => u.Email).HasMaxLength(256).IsRequired();
+            entity.Property(u => u.PasswordHash).HasMaxLength(256).IsRequired();
+        });
 
-        // RefreshToken - User ilişkisi ve indeks
-        modelBuilder.Entity<RefreshToken>()
-            .HasOne(rt => rt.User)
-            .WithMany(u => u.RefreshTokens)
-            .HasForeignKey(rt => rt.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
+        // RefreshToken - User ilişkisi ve indeks (T8.2.6: MaxLength)
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasOne(rt => rt.User)
+                .WithMany(u => u.RefreshTokens)
+                .HasForeignKey(rt => rt.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<RefreshToken>()
-            .HasIndex(rt => rt.Token)
-            .IsUnique();
+            entity.HasIndex(rt => rt.Token).IsUnique();
+            entity.Property(rt => rt.Token).HasMaxLength(450).IsRequired();
+        });
 
-        modelBuilder.Entity<PasswordResetToken>()
-            .HasOne(prt => prt.User)
-            .WithMany(u => u.PasswordResetTokens)
-            .HasForeignKey(prt => prt.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
+        // PasswordResetToken - User ilişkisi ve indeks (T8.2.6: MaxLength)
+        modelBuilder.Entity<PasswordResetToken>(entity =>
+        {
+            entity.HasOne(prt => prt.User)
+                .WithMany(u => u.PasswordResetTokens)
+                .HasForeignKey(prt => prt.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<PasswordResetToken>()
-            .HasIndex(prt => prt.Token)
-            .IsUnique();
+            entity.HasIndex(prt => prt.Token).IsUnique();
+            entity.Property(prt => prt.Token).HasMaxLength(450).IsRequired();
+        });
 
-        // TodoItem - User FK yapılandırmaları
+        // TodoItem - User FK ve Kolon Yapılandırmaları (T8.2.6: MaxLength)
         // OwnerId: CASCADE — User silinirse sahip olduğu görevler de silinir (BR-002)
-        modelBuilder.Entity<TodoItem>()
-            .HasOne(t => t.Owner)
-            .WithMany()
-            .HasForeignKey(t => t.OwnerId)
-            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<TodoItem>(entity =>
+        {
+            entity.HasOne(t => t.Owner)
+                .WithMany()
+                .HasForeignKey(t => t.OwnerId)
+                .OnDelete(DeleteBehavior.Cascade);
 
-        // CompletedByUserId: NO ACTION — SQL Server multiple cascade paths kuralı gereği
-        modelBuilder.Entity<TodoItem>()
-            .HasOne<User>()
-            .WithMany()
-            .HasForeignKey(t => t.CompletedByUserId)
-            .OnDelete(DeleteBehavior.NoAction);
+            // CompletedByUserId: NO ACTION — SQL Server multiple cascade paths kuralı gereği
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(t => t.CompletedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
 
-        // DeletedByUserId: NO ACTION — SQL Server multiple cascade paths kuralı gereği
-        modelBuilder.Entity<TodoItem>()
-            .HasOne<User>()
-            .WithMany()
-            .HasForeignKey(t => t.DeletedByUserId)
-            .OnDelete(DeleteBehavior.NoAction);
+            // DeletedByUserId: NO ACTION — SQL Server multiple cascade paths kuralı gereği
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(t => t.DeletedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
 
-        // T8.2.1: EF Core Global Query Filter (Soft-Delete)
-        // Silinmiş görevler tüm sorgularda otomatik olarak hariç tutulur
-        modelBuilder.Entity<TodoItem>()
-            .HasQueryFilter(t => !t.IsDeleted);
+            // T8.2.1: EF Core Global Query Filter (Soft-Delete)
+            entity.HasQueryFilter(t => !t.IsDeleted);
 
-        // SubTask - TodoItem FK ve CASCADE yapılandırması
+            entity.Property(t => t.Title).HasMaxLength(200).IsRequired();
+            entity.Property(t => t.Description).HasMaxLength(2000);
+        });
+
+        // SubTask - TodoItem FK ve CASCADE yapılandırması (T8.2.6: MaxLength)
         // BR-016: TaskId NOT NULL
         // BR-019: Üst görev (hard) silinirse tüm alt görevler de silinir (ON DELETE CASCADE)
-        modelBuilder.Entity<SubTask>()
-            .HasOne(st => st.Task)
-            .WithMany(t => t.SubTasks)
-            .HasForeignKey(st => st.TaskId)
-            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SubTask>(entity =>
+        {
+            entity.HasOne(st => st.Task)
+                .WithMany(t => t.SubTasks)
+                .HasForeignKey(st => st.TaskId)
+                .OnDelete(DeleteBehavior.Cascade);
 
-        // Tag yapılandırması
+            entity.Property(st => st.Title).HasMaxLength(200).IsRequired();
+        });
+
+        // Tag yapılandırması (T8.2.6: MaxLength)
         // BR-021: Global etiket adı (Unique)
-        modelBuilder.Entity<Tag>()
-            .HasIndex(t => t.Name)
-            .IsUnique();
-
         // BR-023: Admin silinse bile Tag kalır (CreatedByUserId ON DELETE SET NULL)
-        modelBuilder.Entity<Tag>()
-            .HasOne(t => t.CreatedByUser)
-            .WithMany()
-            .HasForeignKey(t => t.CreatedByUserId)
-            .OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<Tag>(entity =>
+        {
+            entity.HasIndex(t => t.Name).IsUnique();
+            entity.Property(t => t.Name).HasMaxLength(50).IsRequired();
+
+            entity.HasOne(t => t.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(t => t.CreatedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
 
         // TodoItemTag Composite Key ve İlişki yapılandırması
         // BR-024: Composite PK (TodoItemId + TagId) — Aynı Tag aynı Task'a iki kez eklenemez

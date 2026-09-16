@@ -45,7 +45,7 @@ public class TaskTransferService : ITaskTransferService
             throw new ValidationException("Silinmiş bir görevin sahipliği devredilemez.");
         }
 
-        var targetUser = await _userRepo.GetByEmailAsync(dto.NewOwnerEmail.Trim());
+        var targetUser = await _userRepo.GetByEmailAsync(dto.NewOwnerEmail.Trim().ToLowerInvariant());
         if (targetUser is null)
         {
             throw new NotFoundException("Yeni sahip olarak belirtilen kullanıcı bulunamadı.");

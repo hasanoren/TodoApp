@@ -36,7 +36,7 @@ public class TaskShareService : ITaskShareService
             throw new ValidationException("Silinmiş bir görev paylaşılamaz.");
         }
 
-        var targetUser = await _userRepository.GetByEmailAsync(request.Email.Trim());
+        var targetUser = await _userRepository.GetByEmailAsync(request.Email.Trim().ToLowerInvariant());
 
         // BR-027: Var olmayan bir kullanıcıyla paylaşım yapılırsa hata döner
         if (targetUser is null)

@@ -116,9 +116,10 @@ public class SubTaskAndCollaborationIntegrationTests : IClassFixture<CustomWebAp
         var pendingResponse = await _client.GetAsync("/api/transfer-requests/pending");
         Assert.Equal(HttpStatusCode.OK, pendingResponse.StatusCode);
 
-        var pendingList = await pendingResponse.Content.ReadFromJsonAsync<List<TransferRequestResponse>>(
+        var pendingResult = await pendingResponse.Content.ReadFromJsonAsync<CollectionResponse<TransferRequestResponse>>(
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        Assert.Contains(pendingList!, r => r.Id == transferResult!.Id);
+        Assert.NotNull(pendingResult);
+        Assert.Contains(pendingResult.Items, r => r.Id == transferResult!.Id);
 
         // 4. Hedef kullanıcı talebi kabul eder
         var acceptResponse = await _client.PostAsync($"/api/transfer-requests/{transferResult!.Id}/accept", null);

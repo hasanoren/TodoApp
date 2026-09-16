@@ -38,7 +38,8 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
-        var existingUser = await _userRepository.GetByEmailAsync(request.Email);
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        var existingUser = await _userRepository.GetByEmailAsync(normalizedEmail);
         if (existingUser is not null)
         {
             throw new ConflictException("Bu e-posta adresi zaten kayıtlı.");
@@ -47,7 +48,7 @@ public class AuthService : IAuthService
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = request.Email,
+            Email = normalizedEmail,
             PasswordHash = _passwordHasher.HashPassword(request.Password),
             Role = UserRole.User,
             CreatedAt = DateTime.UtcNow
@@ -64,7 +65,8 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
     {
-        var user = await _userRepository.GetByEmailAsync(request.Email);
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        var user = await _userRepository.GetByEmailAsync(normalizedEmail);
 
         // Kullanıcı bulunamasa dahi sahte hash ile doğrulama çalıştırılarak süre eşitlenir
         var passwordHash = user?.PasswordHash ?? DummyHash;
@@ -138,7 +140,8 @@ public class AuthService : IAuthService
 
     public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
     {
-        var user = await _userRepository.GetByEmailAsync(request.Email);
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        var user = await _userRepository.GetByEmailAsync(normalizedEmail);
 
         if (user is null)
         {

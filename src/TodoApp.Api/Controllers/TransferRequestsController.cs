@@ -32,7 +32,7 @@ public class TransferRequestsController : ControllerBase
     {
         var currentUserId = GetCurrentUserId();
         var result = await _taskTransferService.GetPendingRequestsAsync(currentUserId);
-        return Ok(result);
+        return Ok(new CollectionResponse<TransferRequestResponse>(result));
     }
 
     // POST /api/transfer-requests/{requestId}/accept — Devir talebini kabul etme
