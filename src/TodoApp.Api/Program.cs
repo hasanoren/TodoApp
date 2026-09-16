@@ -137,6 +137,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 builder.Services.AddAppRateLimiting();
+builder.Services.AddAppHealthChecks();
 
 var app = builder.Build();
 
@@ -157,6 +158,7 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapAppHealthChecks();
 app.MapControllers();
 
 app.Run();
