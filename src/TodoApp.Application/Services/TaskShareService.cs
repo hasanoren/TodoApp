@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces;
 using TodoApp.Domain.Entities;
@@ -10,15 +12,18 @@ public class TaskShareService : ITaskShareService
     private readonly ITaskShareRepository _taskShareRepository;
     private readonly IUserRepository _userRepository;
     private readonly ITaskAuthorizationService _taskAuthorizationService;
+    private readonly ILogger<TaskShareService> _logger;
 
     public TaskShareService(
         ITaskShareRepository taskShareRepository,
         IUserRepository userRepository,
-        ITaskAuthorizationService taskAuthorizationService)
+        ITaskAuthorizationService taskAuthorizationService,
+        ILogger<TaskShareService>? logger = null)
     {
         _taskShareRepository = taskShareRepository;
         _userRepository = userRepository;
         _taskAuthorizationService = taskAuthorizationService;
+        _logger = logger ?? NullLogger<TaskShareService>.Instance;
     }
 
     public async Task ShareAsync(Guid ownerUserId, Guid taskId, ShareTaskRequest request)
@@ -66,6 +71,8 @@ public class TaskShareService : ITaskShareService
 
         await _taskShareRepository.AddAsync(share);
         await _taskShareRepository.SaveChangesAsync();
+
+        _logger.LogInformation("Görev kullanıcıyla paylaşıldı. TaskId: {TaskId}, OwnerId: {OwnerId}, TargetUserId: {TargetUserId}", taskId, ownerUserId, targetUser.Id);
     }
 
     public async Task<List<SharedUserResponse>> GetSharedUsersAsync(Guid userId, Guid taskId)
@@ -96,6 +103,8 @@ public class TaskShareService : ITaskShareService
 
         _taskShareRepository.Remove(share);
         await _taskShareRepository.SaveChangesAsync();
+
+        _logger.LogInformation("Görev paylaşımı kaldırıldı. TaskId: {TaskId}, OwnerId: {OwnerId}, TargetUserId: {TargetUserId}", taskId, ownerUserId, targetUserId);
     }
 
     public async Task LeaveShareAsync(Guid sharedUserId, Guid taskId)
@@ -109,5 +118,7 @@ public class TaskShareService : ITaskShareService
 
         _taskShareRepository.Remove(share);
         await _taskShareRepository.SaveChangesAsync();
+
+        _logger.LogInformation("Kullanıcı görev paylaşımından ayrıldı. TaskId: {TaskId}, UserId: {UserId}", taskId, sharedUserId);
     }
 }

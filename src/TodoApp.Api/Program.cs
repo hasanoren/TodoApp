@@ -12,9 +12,15 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using TodoApp.Application.Validators;
 using TodoApp.Api.Extensions;
-
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// T8.3.3: Serilog Entegrasyonu & Yapılandırılmış Loglama
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext());
 
 builder.Services.AddControllers();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -149,6 +155,7 @@ if (app.Environment.IsDevelopment())
 }
 app.UseMiddleware<ExceptionHandlingMiddleware>();   // ---- YENİ: en başta olmalı ----
 app.UseMiddleware<SecurityHeadersMiddleware>();
+app.UseSerilogRequestLogging();
 
 app.UseHttpsRedirection();
 app.UseCors(corsPolicyName);

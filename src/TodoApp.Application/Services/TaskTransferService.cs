@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces;
 using TodoApp.Domain.Entities;
@@ -11,17 +13,20 @@ public class TaskTransferService : ITaskTransferService
     private readonly ITodoItemRepository _todoItemRepo;
     private readonly IUserRepository _userRepo;
     private readonly ITaskShareRepository _taskShareRepo;
+    private readonly ILogger<TaskTransferService> _logger;
 
     public TaskTransferService(
         IOwnershipTransferRequestRepository transferRequestRepo,
         ITodoItemRepository todoItemRepo,
         IUserRepository userRepo,
-        ITaskShareRepository taskShareRepo)
+        ITaskShareRepository taskShareRepo,
+        ILogger<TaskTransferService>? logger = null)
     {
         _transferRequestRepo = transferRequestRepo;
         _todoItemRepo = todoItemRepo;
         _userRepo = userRepo;
         _taskShareRepo = taskShareRepo;
+        _logger = logger ?? NullLogger<TaskTransferService>.Instance;
     }
 
     public async Task<TransferRequestResponse> CreateTransferRequestAsync(
@@ -75,6 +80,8 @@ public class TaskTransferService : ITaskTransferService
 
         await _transferRequestRepo.AddAsync(transferRequest);
         await _transferRequestRepo.SaveChangesAsync();
+
+        _logger.LogInformation("Görev devir talebi oluşturuldu. RequestId: {RequestId}, TaskId: {TaskId}, FromUserId: {FromUserId}, ToUserId: {ToUserId}", transferRequest.Id, taskId, currentOwnerId, targetUser.Id);
 
         var currentUser = await _userRepo.GetByIdAsync(currentOwnerId);
 
@@ -159,6 +166,8 @@ public class TaskTransferService : ITaskTransferService
         await _taskShareRepo.SaveChangesAsync();
         await _todoItemRepo.SaveChangesAsync();
         await _transferRequestRepo.SaveChangesAsync();
+
+        _logger.LogInformation("Görev devir talebi kabul edildi. Sahiplik aktarıldı. RequestId: {RequestId}, TaskId: {TaskId}, NewOwnerId: {NewOwnerId}, PreviousOwnerId: {PreviousOwnerId}", requestId, task.Id, targetUserId, oldOwnerId);
     }
 
     public async Task RejectTransferRequestAsync(Guid targetUserId, Guid requestId)
@@ -179,6 +188,8 @@ public class TaskTransferService : ITaskTransferService
         request.RespondedAt = DateTime.UtcNow;
 
         await _transferRequestRepo.SaveChangesAsync();
+
+        _logger.LogInformation("Görev devir talebi reddedildi. RequestId: {RequestId}, UserId: {UserId}", requestId, targetUserId);
     }
 
     public async Task CancelTransferRequestAsync(Guid ownerUserId, Guid requestId)
@@ -199,6 +210,8 @@ public class TaskTransferService : ITaskTransferService
         request.RespondedAt = DateTime.UtcNow;
 
         await _transferRequestRepo.SaveChangesAsync();
+
+        _logger.LogInformation("Görev devir talebi iptal edildi. RequestId: {RequestId}, OwnerId: {OwnerId}", requestId, ownerUserId);
     }
 }
 

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces;
 using TodoApp.Domain.Entities;
@@ -9,13 +11,16 @@ public class TodoItemService : ITodoItemService
 {
     private readonly ITodoItemRepository _todoItemRepository;
     private readonly ITaskAuthorizationService _taskAuthorizationService;
+    private readonly ILogger<TodoItemService> _logger;
 
     public TodoItemService(
         ITodoItemRepository todoItemRepository,
-        ITaskAuthorizationService taskAuthorizationService)
+        ITaskAuthorizationService taskAuthorizationService,
+        ILogger<TodoItemService>? logger = null)
     {
         _todoItemRepository = todoItemRepository;
         _taskAuthorizationService = taskAuthorizationService;
+        _logger = logger ?? NullLogger<TodoItemService>.Instance;
     }
 
     public async Task<TodoItemResponse> CreateAsync(Guid userId, CreateTodoItemRequest request)
@@ -33,6 +38,8 @@ public class TodoItemService : ITodoItemService
 
         await _todoItemRepository.AddAsync(todoItem);
         await _todoItemRepository.SaveChangesAsync();
+
+        _logger.LogInformation("Görev başarıyla oluşturuldu. TaskId: {TaskId}, OwnerId: {OwnerId}, Title: {Title}", todoItem.Id, userId, todoItem.Title);
 
         return MapToResponse(todoItem, userId);
     }
@@ -66,6 +73,8 @@ public class TodoItemService : ITodoItemService
 
         await _todoItemRepository.SaveChangesAsync();
 
+        _logger.LogInformation("Görev güncellendi. TaskId: {TaskId}, UserId: {UserId}", todoItemId, userId);
+
         return MapToResponse(todoItem, userId);
     }
 
@@ -79,6 +88,8 @@ public class TodoItemService : ITodoItemService
         todoItem.CompletedAt = DateTime.UtcNow;
 
         await _todoItemRepository.SaveChangesAsync();
+
+        _logger.LogInformation("Görev tamamlandı. TaskId: {TaskId}, CompletedByUserId: {UserId}", todoItemId, userId);
 
         return MapToResponse(todoItem, userId);
     }
@@ -94,6 +105,8 @@ public class TodoItemService : ITodoItemService
         todoItem.DeletedAt = DateTime.UtcNow;
 
         await _todoItemRepository.SaveChangesAsync();
+
+        _logger.LogInformation("Görev çöp kutusuna taşındı (soft delete). TaskId: {TaskId}, DeletedByUserId: {UserId}", todoItemId, userId);
     }
 
     public async Task PermanentDeleteAsync(Guid userId, Guid todoItemId)
@@ -108,6 +121,8 @@ public class TodoItemService : ITodoItemService
 
         _todoItemRepository.Delete(todoItem);
         await _todoItemRepository.SaveChangesAsync();
+
+        _logger.LogWarning("Görev kalıcı olarak silindi. TaskId: {TaskId}, OwnerId: {OwnerId}", todoItemId, userId);
     }
 
     public async Task<TodoItemResponse> RestoreAsync(Guid userId, Guid todoItemId)
@@ -125,6 +140,8 @@ public class TodoItemService : ITodoItemService
         todoItem.DeletedAt = null;
 
         await _todoItemRepository.SaveChangesAsync();
+
+        _logger.LogInformation("Görev çöp kutusundan geri yüklendi. TaskId: {TaskId}, OwnerId: {OwnerId}", todoItemId, userId);
 
         return MapToResponse(todoItem, userId);
     }

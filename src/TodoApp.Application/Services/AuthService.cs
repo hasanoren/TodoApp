@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using TodoApp.Application.Common;
 using TodoApp.Application.DTOs;
@@ -17,6 +19,7 @@ public class AuthService : IAuthService
     private readonly IPasswordResetTokenRepository _passwordResetTokenRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordResetSettings _passwordResetSettings;
+    private readonly ILogger<AuthService> _logger;
 
     public AuthService(
         IUserRepository userRepository,
@@ -25,7 +28,8 @@ public class AuthService : IAuthService
         IEmailSender emailSender,
         IPasswordResetTokenRepository passwordResetTokenRepository,
         IPasswordHasher passwordHasher,
-        IOptions<PasswordResetSettings> passwordResetOptions)
+        IOptions<PasswordResetSettings> passwordResetOptions,
+        ILogger<AuthService>? logger = null)
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
@@ -34,6 +38,7 @@ public class AuthService : IAuthService
         _passwordResetTokenRepository = passwordResetTokenRepository;
         _passwordHasher = passwordHasher;
         _passwordResetSettings = passwordResetOptions.Value;
+        _logger = logger ?? NullLogger<AuthService>.Instance;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -57,6 +62,8 @@ public class AuthService : IAuthService
         await _userRepository.AddAsync(user);
         await _userRepository.SaveChangesAsync();
 
+        _logger.LogInformation("Yeni kullanıcı kaydı oluşturuldu. UserId: {UserId}, Email: {Email}", user.Id, user.Email);
+
         return await GenerateAuthResponseAsync(user);
     }
 
@@ -74,8 +81,11 @@ public class AuthService : IAuthService
 
         if (user is null || !isPasswordValid)
         {
+            _logger.LogWarning("Başarısız giriş denemesi. Email: {Email}", request.Email);
             throw new ValidationException("E-posta veya şifre hatalı.");
         }
+
+        _logger.LogInformation("Kullanıcı başarıyla giriş yaptı. UserId: {UserId}, Email: {Email}", user.Id, user.Email);
 
         return await GenerateAuthResponseAsync(user);
     }
@@ -87,10 +97,12 @@ public class AuthService : IAuthService
 
         if (storedToken is null || !storedToken.IsActive)
         {
+            _logger.LogWarning("Geçersiz veya süresi dolmuş refresh token denemesi.");
             throw new ValidationException("Geçersiz veya süresi dolmuş refresh token.");
         }
 
         storedToken.IsRevoked = true;
+        _logger.LogInformation("Refresh token rotasyonu gerçekleştirildi. UserId: {UserId}", storedToken.UserId);
 
         return await GenerateAuthResponseAsync(storedToken.User);
     }
@@ -136,6 +148,7 @@ public class AuthService : IAuthService
 
         storedToken.IsRevoked = true;
         await _refreshTokenRepository.SaveChangesAsync();
+        _logger.LogInformation("Kullanıcı oturumu sonlandırıldı (Logout). UserId: {UserId}", storedToken.UserId);
     }
 
     public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
@@ -179,6 +192,8 @@ public class AuthService : IAuthService
             user.Email,
             "TodoApp - Şifre Sıfırlama",
             htmlBody);
+
+        _logger.LogInformation("Şifre sıfırlama e-postası gönderildi. Email: {Email}", user.Email);
     }
 
     public async Task ResetPasswordAsync(ResetPasswordRequest request)
@@ -187,6 +202,7 @@ public class AuthService : IAuthService
 
         if (storedToken is null || !storedToken.IsActive)
         {
+            _logger.LogWarning("Geçersiz veya süresi dolmuş şifre sıfırlama bağlantısı denemesi.");
             throw new ValidationException("Geçersiz veya süresi dolmuş sıfırlama bağlantısı.");
         }
 
@@ -200,6 +216,7 @@ public class AuthService : IAuthService
         }
 
         await _passwordResetTokenRepository.SaveChangesAsync();
+        _logger.LogInformation("Kullanıcı şifresi sıfırlandı ve tüm oturumları geçersiz kılındı. UserId: {UserId}", storedToken.UserId);
     }
 
     public async Task ChangePasswordAsync(
@@ -219,6 +236,7 @@ public class AuthService : IAuthService
 
         if (!isPasswordCorrect)
         {
+            _logger.LogWarning("Şifre değiştirme başarısız: Mevcut şifre hatalı. UserId: {UserId}", userId);
             throw new ValidationException("Mevcut şifre hatalı.");
         }
 
@@ -232,5 +250,6 @@ public class AuthService : IAuthService
         }
 
         await _userRepository.SaveChangesAsync();
+        _logger.LogInformation("Kullanıcı şifresini değiştirdi ve tüm oturumları geçersiz kılındı. UserId: {UserId}", userId);
     }
 }

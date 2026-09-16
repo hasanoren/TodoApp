@@ -26,4 +26,5 @@ appsettings.*.json
 
 ## Diğer
 *.log
+logs/
 .DS_Store
