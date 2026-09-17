@@ -9,6 +9,8 @@ public class TodoItemFilterDto : PaginatedRequest
     public TodoItemStatus? Status { get; set; }
     public DateTime? DueDateFrom { get; set; }
     public DateTime? DueDateTo { get; set; }
+    public TodoApp.Domain.Enums.TodoItemPriority? Priority { get; set; }
+    public Guid? TodoListId { get; set; }
     public string? SortBy { get; set; } = "createdAt";
     public string? SortOrder { get; set; } = "desc";
 }

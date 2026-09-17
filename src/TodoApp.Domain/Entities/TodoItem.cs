@@ -1,3 +1,5 @@
+using TodoApp.Domain.Enums;
+
 namespace TodoApp.Domain.Entities;
 
 public enum TodoItemStatus
@@ -14,10 +16,14 @@ public class TodoItem
     public Guid OwnerId { get; set; }
     public User Owner { get; set; } = null!;
 
+    public Guid? TodoListId { get; set; }
+    public TodoList? TodoList { get; set; }
+
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public DateTime? DueDate { get; set; }
     public TodoItemStatus Status { get; set; } = TodoItemStatus.Open;
+    public TodoItemPriority Priority { get; set; } = TodoItemPriority.Medium;
 
     // BR-015: Paylaşım kalksa bile Completed bilgisi korunur
     public Guid? CompletedByUserId { get; set; }

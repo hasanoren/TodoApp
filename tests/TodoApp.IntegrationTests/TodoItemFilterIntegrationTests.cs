@@ -233,4 +233,45 @@ public class TodoItemFilterIntegrationTests : IClassFixture<CustomWebApplication
         var lateIndex = sortResult.Items.FindIndex(t => t.Id == itemLate!.Id);
         Assert.True(earlyIndex < lateIndex, "Erken görev, geç görevden önce listelenmeli (dueDate asc).");
     }
+
+    [Fact]
+    public async Task GetAll_WithPriority_FiltersAndSortsCorrectly()
+    {
+        // ARRANGE
+        var token = await AuthenticateUserAsync();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var taskLow = await _client.PostAsJsonAsync("/api/TodoItems", new CreateTodoItemRequest
+        {
+            Title = "Düşük Öncelikli Görev",
+            Priority = TodoApp.Domain.Enums.TodoItemPriority.Low
+        });
+        var itemLow = await taskLow.Content.ReadFromJsonAsync<TodoItemResponse>(JsonOptions);
+
+        var taskHigh = await _client.PostAsJsonAsync("/api/TodoItems", new CreateTodoItemRequest
+        {
+            Title = "Yüksek Öncelikli Görev",
+            Priority = TodoApp.Domain.Enums.TodoItemPriority.High
+        });
+        var itemHigh = await taskHigh.Content.ReadFromJsonAsync<TodoItemResponse>(JsonOptions);
+
+        // ACT: Filter by Priority=High
+        var filterResp = await _client.GetAsync("/api/TodoItems?priority=High");
+        var filterResult = await filterResp.Content.ReadFromJsonAsync<PaginatedResponse<TodoItemResponse>>(JsonOptions);
+
+        // ACT: Sort by Priority Descending (High -> Medium -> Low)
+        var sortResp = await _client.GetAsync("/api/TodoItems?sortBy=priority&sortOrder=desc");
+        var sortResult = await sortResp.Content.ReadFromJsonAsync<PaginatedResponse<TodoItemResponse>>(JsonOptions);
+
+        // ASSERT
+        Assert.NotNull(filterResult);
+        Assert.Contains(filterResult.Items, t => t.Id == itemHigh!.Id);
+        Assert.DoesNotContain(filterResult.Items, t => t.Id == itemLow!.Id);
+
+        Assert.NotNull(sortResult);
+        var highIndex = sortResult.Items.FindIndex(t => t.Id == itemHigh!.Id);
+        var lowIndex = sortResult.Items.FindIndex(t => t.Id == itemLow!.Id);
+        Assert.True(highIndex < lowIndex, "Yüksek öncelikli görev, düşük öncelikli görevden önce listelenmeli (priority desc).");
+    }
 }
+

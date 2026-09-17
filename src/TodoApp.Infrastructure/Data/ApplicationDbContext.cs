@@ -14,6 +14,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<TodoItem> TodoItems => Set<TodoItem>();
+    public DbSet<TodoList> TodoLists => Set<TodoList>();
     public DbSet<SubTask> SubTasks => Set<SubTask>();
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<TodoItemTag> TodoItemTags => Set<TodoItemTag>();
@@ -82,6 +83,12 @@ public class ApplicationDbContext : DbContext
 
             entity.Property(t => t.Title).HasMaxLength(200).IsRequired();
             entity.Property(t => t.Description).HasMaxLength(2000);
+        });
+
+        // TodoList yapılandırması (BR-011: Soft-Delete Filter)
+        modelBuilder.Entity<TodoList>(entity =>
+        {
+            entity.HasQueryFilter(l => !l.IsDeleted);
         });
 
         // SubTask - TodoItem FK ve CASCADE yapılandırması (T8.2.6: MaxLength)

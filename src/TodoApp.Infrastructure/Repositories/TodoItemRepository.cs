@@ -25,6 +25,7 @@ public class TodoItemRepository : ITodoItemRepository
         }
 
         return await query
+            .Include(t => t.TodoList)
             .Include(t => t.SubTasks)
             .Include(t => t.TodoItemTags)
                 .ThenInclude(tit => tit.Tag)
@@ -60,9 +61,9 @@ public class TodoItemRepository : ITodoItemRepository
         // 2. Serbest Metin Arama (Search)
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
-            var search = filter.Search.Trim().ToLowerInvariant();
-            query = query.Where(t => t.Title.ToLower().Contains(search)
-                || (t.Description != null && t.Description.ToLower().Contains(search)));
+            var search = filter.Search.Trim();
+            query = query.Where(t => t.Title.Contains(search)
+                || (t.Description != null && t.Description.Contains(search)));
         }
 
         // 3. Durum Filtresi (Status)
@@ -82,6 +83,16 @@ public class TodoItemRepository : ITodoItemRepository
             query = query.Where(t => t.DueDate <= filter.DueDateTo.Value);
         }
 
+        if (filter.Priority.HasValue)
+        {
+            query = query.Where(t => t.Priority == filter.Priority.Value);
+        }
+
+        if (filter.TodoListId.HasValue)
+        {
+            query = query.Where(t => t.TodoListId == filter.TodoListId.Value);
+        }
+
         var totalCount = await query.CountAsync();
 
         // 5. Dinamik Sıralama (SortBy, SortOrder)
@@ -92,6 +103,7 @@ public class TodoItemRepository : ITodoItemRepository
         {
             "duedate" => isAsc ? query.OrderBy(t => t.DueDate) : query.OrderByDescending(t => t.DueDate),
             "title" => isAsc ? query.OrderBy(t => t.Title) : query.OrderByDescending(t => t.Title),
+            "priority" => isAsc ? query.OrderBy(t => t.Priority) : query.OrderByDescending(t => t.Priority),
             _ => isAsc ? query.OrderBy(t => t.CreatedAt) : query.OrderByDescending(t => t.CreatedAt)
         };
 

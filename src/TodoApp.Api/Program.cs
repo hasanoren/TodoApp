@@ -79,7 +79,10 @@ builder.Services.AddScoped<TodoApp.Application.Interfaces.IAuthService, TodoApp.
 builder.Services.AddScoped<TodoApp.Application.Interfaces.IEmailSender, TodoApp.Infrastructure.Services.EmailSender>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.IPasswordResetTokenRepository, TodoApp.Infrastructure.Repositories.PasswordResetTokenRepository>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoItemRepository, TodoApp.Infrastructure.Repositories.TodoItemRepository>();
+builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoListRepository, TodoApp.Infrastructure.Repositories.TodoListRepository>();
+
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoItemService, TodoApp.Application.Services.TodoItemService>();
+builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoListService, TodoApp.Application.Services.TodoListService>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ISubTaskRepository, TodoApp.Infrastructure.Repositories.SubTaskRepository>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ISubTaskService, TodoApp.Application.Services.SubTaskService>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ITagRepository, TodoApp.Infrastructure.Repositories.TagRepository>();

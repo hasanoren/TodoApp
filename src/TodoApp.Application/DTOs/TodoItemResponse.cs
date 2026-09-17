@@ -7,6 +7,8 @@ public class TodoItemResponse
     public string? Description { get; set; }
     public DateTime? DueDate { get; set; }
     public string Status { get; set; } = string.Empty;
+    public string Priority { get; set; } = string.Empty;
+    public Guid? TodoListId { get; set; }
     public Guid OwnerId { get; set; }
     public bool IsOwner { get; set; }
     public Guid? CompletedByUserId { get; set; }

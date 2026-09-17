@@ -33,6 +33,8 @@ public class TodoItemService : ITodoItemService
             Description = request.Description,
             DueDate = request.DueDate,
             Status = TodoItemStatus.Open,
+            Priority = request.Priority,
+            TodoListId = request.TodoListId,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -82,6 +84,8 @@ public class TodoItemService : ITodoItemService
         todoItem.Title = request.Title;
         todoItem.Description = request.Description;
         todoItem.DueDate = request.DueDate;
+        todoItem.Priority = request.Priority;
+        todoItem.TodoListId = request.TodoListId;
 
         await _todoItemRepository.SaveChangesAsync();
 
@@ -151,6 +155,13 @@ public class TodoItemService : ITodoItemService
         todoItem.DeletedByUserId = null;
         todoItem.DeletedAt = null;
 
+        // Senaryo B Koruması: Eğer görev bir listeye aitse ama o liste silinmişse, görevi ana havuza (Inbox) düşür.
+        if (todoItem.TodoListId.HasValue && todoItem.TodoList != null && todoItem.TodoList.IsDeleted)
+        {
+            todoItem.TodoListId = null;
+            _logger.LogWarning("Görev geri yüklendi ancak ait olduğu liste (ListId: {ListId}) silinmiş olduğu için görev ana havuza taşındı.", todoItem.TodoListId);
+        }
+
         await _todoItemRepository.SaveChangesAsync();
 
         _logger.LogInformation("Görev çöp kutusundan geri yüklendi. TaskId: {TaskId}, OwnerId: {OwnerId}", todoItemId, userId);
@@ -178,6 +189,8 @@ public class TodoItemService : ITodoItemService
             Description = todoItem.Description,
             DueDate = todoItem.DueDate,
             Status = todoItem.Status.ToString(),
+            Priority = todoItem.Priority.ToString(),
+            TodoListId = todoItem.TodoListId,
             OwnerId = todoItem.OwnerId,
             IsOwner = todoItem.OwnerId == currentUserId,
             CompletedByUserId = todoItem.CompletedByUserId,

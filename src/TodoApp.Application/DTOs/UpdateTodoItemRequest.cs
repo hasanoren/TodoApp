@@ -5,5 +5,7 @@ public class UpdateTodoItemRequest
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public DateTime? DueDate { get; set; }
+    public TodoApp.Domain.Enums.TodoItemPriority Priority { get; set; } = TodoApp.Domain.Enums.TodoItemPriority.Medium;
+    public Guid? TodoListId { get; set; }
 }
 

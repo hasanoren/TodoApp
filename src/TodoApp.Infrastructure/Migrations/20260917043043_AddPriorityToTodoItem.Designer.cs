@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TodoApp.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using TodoApp.Infrastructure.Data;
 namespace TodoApp.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260917043043_AddPriorityToTodoItem")]
+    partial class AddPriorityToTodoItem
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -240,9 +243,6 @@ namespace TodoApp.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<Guid?>("TodoListId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CompletedByUserId");
@@ -250,8 +250,6 @@ namespace TodoApp.Infrastructure.Migrations
                     b.HasIndex("DeletedByUserId");
 
                     b.HasIndex("OwnerId");
-
-                    b.HasIndex("TodoListId");
 
                     b.ToTable("TodoItems");
                 });
@@ -272,41 +270,6 @@ namespace TodoApp.Infrastructure.Migrations
                     b.HasIndex("TagId");
 
                     b.ToTable("TodoItemTags");
-                });
-
-            modelBuilder.Entity("TodoApp.Domain.Entities.TodoList", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ColorCode")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedByUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("OwnerId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OwnerId");
-
-                    b.ToTable("TodoLists");
                 });
 
             modelBuilder.Entity("TodoApp.Domain.Entities.User", b =>
@@ -446,13 +409,7 @@ namespace TodoApp.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("TodoApp.Domain.Entities.TodoList", "TodoList")
-                        .WithMany("TodoItems")
-                        .HasForeignKey("TodoListId");
-
                     b.Navigation("Owner");
-
-                    b.Navigation("TodoList");
                 });
 
             modelBuilder.Entity("TodoApp.Domain.Entities.TodoItemTag", b =>
@@ -474,17 +431,6 @@ namespace TodoApp.Infrastructure.Migrations
                     b.Navigation("TodoItem");
                 });
 
-            modelBuilder.Entity("TodoApp.Domain.Entities.TodoList", b =>
-                {
-                    b.HasOne("TodoApp.Domain.Entities.User", "Owner")
-                        .WithMany()
-                        .HasForeignKey("OwnerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Owner");
-                });
-
             modelBuilder.Entity("TodoApp.Domain.Entities.Tag", b =>
                 {
                     b.Navigation("TodoItemTags");
@@ -497,11 +443,6 @@ namespace TodoApp.Infrastructure.Migrations
                     b.Navigation("TaskShares");
 
                     b.Navigation("TodoItemTags");
-                });
-
-            modelBuilder.Entity("TodoApp.Domain.Entities.TodoList", b =>
-                {
-                    b.Navigation("TodoItems");
                 });
 
             modelBuilder.Entity("TodoApp.Domain.Entities.User", b =>
