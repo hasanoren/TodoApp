@@ -394,6 +394,42 @@ public class TodoItemServiceTests
     }
 
     [Fact]
+    public async Task GetAllAsync_WithFilter_ReturnsFilteredPaginatedResponse()
+    {
+        // ARRANGE
+        var items = new List<TodoItem>
+        {
+            CreateSampleTodoItem(_ownerId)
+        };
+
+        var filter = new TodoItemFilterDto
+        {
+            FilterType = TaskFilterType.OnlyMine,
+            Search = "test",
+            Status = TodoItemStatus.Open,
+            Page = 1,
+            PageSize = 10,
+            SortBy = "dueDate",
+            SortOrder = "asc"
+        };
+
+        _mockRepo
+            .Setup(r => r.GetAccessibleByUserAsync(_ownerId, filter))
+            .ReturnsAsync((items, 1));
+
+        // ACT
+        var result = await _service.GetAllAsync(_ownerId, filter);
+
+        // ASSERT
+        Assert.NotNull(result);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(1, result.Page);
+        Assert.Equal(10, result.PageSize);
+        Assert.Single(result.Items);
+        _mockRepo.Verify(r => r.GetAccessibleByUserAsync(_ownerId, filter), Times.Once);
+    }
+
+    [Fact]
     public async Task GetTrashAsync_ReturnsPaginatedResponse()
     {
         // ARRANGE

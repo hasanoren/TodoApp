@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces;
 using TodoApp.Domain.Entities;
 using TodoApp.Infrastructure.Data;
@@ -32,23 +33,74 @@ public class TodoItemRepository : ITodoItemRepository
             .FirstOrDefaultAsync(t => t.Id == id);
     }
 
+    public Task<(List<TodoItem> Items, int TotalCount)> GetAccessibleByUserAsync(Guid userId, int page, int pageSize)
+    {
+        return GetAccessibleByUserAsync(userId, new TodoItemFilterDto { Page = page, PageSize = pageSize });
+    }
+
     // BR-011: Soft-delete edilmiş görevler Global Query Filter ile otomatik filtrelenir
     // Liste görünümü için hafif sorgu (SubTasks dahil edilmez, sadece Tag'ler ve Paylaşılanlar dahil edilir)
-    // Hem kendi görevleri hem kendisiyle paylaşılan görevler gelir
-    public async Task<(List<TodoItem> Items, int TotalCount)> GetAccessibleByUserAsync(Guid userId, int page, int pageSize)
+    // T9.1.1: Dinamik filtreleme (FilterType, Search, Status, DueDate) ve dinamik sıralama
+    public async Task<(List<TodoItem> Items, int TotalCount)> GetAccessibleByUserAsync(Guid userId, TodoItemFilterDto filter)
     {
-        var query = _context.TodoItems
-            .AsNoTracking()
-            .Where(t => t.OwnerId == userId || t.TaskShares.Any(ts => ts.UserId == userId));
+        var page = Math.Max(1, filter.Page);
+        var pageSize = Math.Clamp(filter.PageSize, 1, PaginatedRequest.MaxPageSize);
+
+        var query = _context.TodoItems.AsNoTracking();
+
+        // 1. Paylaşım & Sahiplik Filtresi (FilterType)
+        query = filter.FilterType switch
+        {
+            TaskFilterType.OnlyMine => query.Where(t => t.OwnerId == userId),
+            TaskFilterType.SharedWithMe => query.Where(t => t.TaskShares.Any(ts => ts.UserId == userId)),
+            TaskFilterType.SharedByMe => query.Where(t => t.OwnerId == userId && t.TaskShares.Any()),
+            _ => query.Where(t => t.OwnerId == userId || t.TaskShares.Any(ts => ts.UserId == userId))
+        };
+
+        // 2. Serbest Metin Arama (Search)
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var search = filter.Search.Trim().ToLowerInvariant();
+            query = query.Where(t => t.Title.ToLower().Contains(search)
+                || (t.Description != null && t.Description.ToLower().Contains(search)));
+        }
+
+        // 3. Durum Filtresi (Status)
+        if (filter.Status.HasValue)
+        {
+            query = query.Where(t => t.Status == filter.Status.Value);
+        }
+
+        // 4. Teslim Tarihi Aralığı (DueDateFrom, DueDateTo)
+        if (filter.DueDateFrom.HasValue)
+        {
+            query = query.Where(t => t.DueDate >= filter.DueDateFrom.Value);
+        }
+
+        if (filter.DueDateTo.HasValue)
+        {
+            query = query.Where(t => t.DueDate <= filter.DueDateTo.Value);
+        }
 
         var totalCount = await query.CountAsync();
 
+        // 5. Dinamik Sıralama (SortBy, SortOrder)
+        var isAsc = string.Equals(filter.SortOrder, "asc", StringComparison.OrdinalIgnoreCase);
+        var sortBy = filter.SortBy?.Trim().ToLowerInvariant() ?? "createdat";
+
+        query = sortBy switch
+        {
+            "duedate" => isAsc ? query.OrderBy(t => t.DueDate) : query.OrderByDescending(t => t.DueDate),
+            "title" => isAsc ? query.OrderBy(t => t.Title) : query.OrderByDescending(t => t.Title),
+            _ => isAsc ? query.OrderBy(t => t.CreatedAt) : query.OrderByDescending(t => t.CreatedAt)
+        };
+
+        // 6. Sayfalama (Skip / Take)
         var items = await query
             .Include(t => t.TodoItemTags)
                 .ThenInclude(tit => tit.Tag)
             .Include(t => t.TaskShares)
                 .ThenInclude(ts => ts.User)
-            .OrderByDescending(t => t.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();

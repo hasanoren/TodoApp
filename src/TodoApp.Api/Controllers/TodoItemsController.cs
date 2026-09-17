@@ -27,10 +27,10 @@ public class TodoItemsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] PaginatedRequest request)
+    public async Task<IActionResult> GetAll([FromQuery] TodoItemFilterDto filter)
     {
         var userId = GetCurrentUserId();
-        var result = await _todoItemService.GetAllAsync(userId, request);
+        var result = await _todoItemService.GetAllAsync(userId, filter);
         return Ok(result);
     }
 

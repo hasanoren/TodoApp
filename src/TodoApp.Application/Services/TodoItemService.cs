@@ -57,7 +57,19 @@ public class TodoItemService : ITodoItemService
 
         // BR-011: IsDeleted=false filtresi repository'de uygulanıyor
         var (items, totalCount) = await _todoItemRepository.GetAccessibleByUserAsync(userId, page, pageSize);
-        var mappedItems = items.Select(item => MapToResponse(item, userId)).ToList();
+        var mappedItems = (items ?? new List<TodoItem>()).Select(item => MapToResponse(item, userId)).ToList();
+
+        return new PaginatedResponse<TodoItemResponse>(mappedItems, totalCount, page, pageSize);
+    }
+
+    public async Task<PaginatedResponse<TodoItemResponse>> GetAllAsync(Guid userId, TodoItemFilterDto filter)
+    {
+        var page = Math.Max(1, filter.Page);
+        var pageSize = Math.Clamp(filter.PageSize, 1, PaginatedRequest.MaxPageSize);
+
+        // BR-011: IsDeleted=false filtresi repository'de uygulanıyor
+        var (items, totalCount) = await _todoItemRepository.GetAccessibleByUserAsync(userId, filter);
+        var mappedItems = (items ?? new List<TodoItem>()).Select(item => MapToResponse(item, userId)).ToList();
 
         return new PaginatedResponse<TodoItemResponse>(mappedItems, totalCount, page, pageSize);
     }
