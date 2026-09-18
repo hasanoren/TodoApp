@@ -20,6 +20,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TodoItemTag> TodoItemTags => Set<TodoItemTag>();
     public DbSet<TaskShare> TaskShares => Set<TaskShare>();
     public DbSet<OwnershipTransferRequest> OwnershipTransferRequests => Set<OwnershipTransferRequest>();
+    public DbSet<TodoItemActivity> TodoItemActivities => Set<TodoItemActivity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

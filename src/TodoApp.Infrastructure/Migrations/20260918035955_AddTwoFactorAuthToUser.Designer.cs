@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TodoApp.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using TodoApp.Infrastructure.Data;
 namespace TodoApp.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260918035955_AddTwoFactorAuthToUser")]
+    partial class AddTwoFactorAuthToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -232,9 +235,6 @@ namespace TodoApp.Infrastructure.Migrations
                     b.Property<int>("Priority")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("ReminderSentAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -257,38 +257,6 @@ namespace TodoApp.Infrastructure.Migrations
                     b.HasIndex("TodoListId");
 
                     b.ToTable("TodoItems");
-                });
-
-            modelBuilder.Entity("TodoApp.Domain.Entities.TodoItemActivity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Details")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("TodoItemId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TodoItemId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("TodoItemActivities");
                 });
 
             modelBuilder.Entity("TodoApp.Domain.Entities.TodoItemTag", b =>
@@ -496,25 +464,6 @@ namespace TodoApp.Infrastructure.Migrations
                     b.Navigation("TodoList");
                 });
 
-            modelBuilder.Entity("TodoApp.Domain.Entities.TodoItemActivity", b =>
-                {
-                    b.HasOne("TodoApp.Domain.Entities.TodoItem", "TodoItem")
-                        .WithMany("Activities")
-                        .HasForeignKey("TodoItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("TodoApp.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("TodoItem");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("TodoApp.Domain.Entities.TodoItemTag", b =>
                 {
                     b.HasOne("TodoApp.Domain.Entities.Tag", "Tag")
@@ -552,8 +501,6 @@ namespace TodoApp.Infrastructure.Migrations
 
             modelBuilder.Entity("TodoApp.Domain.Entities.TodoItem", b =>
                 {
-                    b.Navigation("Activities");
-
                     b.Navigation("SubTasks");
 
                     b.Navigation("TaskShares");

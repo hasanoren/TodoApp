@@ -12,17 +12,23 @@ public class TaskShareService : ITaskShareService
     private readonly ITaskShareRepository _taskShareRepository;
     private readonly IUserRepository _userRepository;
     private readonly ITaskAuthorizationService _taskAuthorizationService;
+    private readonly INotificationService _notificationService;
+    private readonly ITodoItemActivityService _activityService;
     private readonly ILogger<TaskShareService> _logger;
 
     public TaskShareService(
         ITaskShareRepository taskShareRepository,
         IUserRepository userRepository,
         ITaskAuthorizationService taskAuthorizationService,
+        INotificationService notificationService,
+        ITodoItemActivityService activityService,
         ILogger<TaskShareService>? logger = null)
     {
         _taskShareRepository = taskShareRepository;
         _userRepository = userRepository;
         _taskAuthorizationService = taskAuthorizationService;
+        _notificationService = notificationService;
+        _activityService = activityService;
         _logger = logger ?? NullLogger<TaskShareService>.Instance;
     }
 
@@ -72,7 +78,21 @@ public class TaskShareService : ITaskShareService
         await _taskShareRepository.AddAsync(share);
         await _taskShareRepository.SaveChangesAsync();
 
-        _logger.LogInformation("Görev kullanıcıyla paylaşıldı. TaskId: {TaskId}, OwnerId: {OwnerId}, TargetUserId: {TargetUserId}", taskId, ownerUserId, targetUser.Id);
+        await _activityService.LogActivityAsync(
+            taskId,
+            ownerUserId,
+            "Görev Paylaşıldı",
+            $"Görev {targetUser.Email} kullanıcısı ile paylaşıldı."
+        );
+
+        // T9.2.2 - Gerçek Zamanlı Bildirim
+        await _notificationService.SendNotificationAsync(
+            targetUser.Id,
+            "Yeni Görev Paylaşımı",
+            $"'{task.Title}' adlı görev sizinle paylaşıldı."
+        );
+
+        _logger.LogInformation("Görev başarıyla paylaşıldı. TaskId: {TaskId}, OwnerId: {OwnerId}, TargetUserId: {TargetUserId}", taskId, ownerUserId, targetUser.Id);
     }
 
     public async Task<List<SharedUserResponse>> GetSharedUsersAsync(Guid userId, Guid taskId)

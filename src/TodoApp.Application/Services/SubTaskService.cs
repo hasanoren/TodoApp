@@ -9,13 +9,16 @@ public class SubTaskService : ISubTaskService
 {
     private readonly ISubTaskRepository _subTaskRepository;
     private readonly ITaskAuthorizationService _taskAuthorizationService;
+    private readonly ITodoItemActivityService _activityService;
 
     public SubTaskService(
         ISubTaskRepository subTaskRepository,
-        ITaskAuthorizationService taskAuthorizationService)
+        ITaskAuthorizationService taskAuthorizationService,
+        ITodoItemActivityService activityService)
     {
         _subTaskRepository = subTaskRepository;
         _taskAuthorizationService = taskAuthorizationService;
+        _activityService = activityService;
     }
 
     public async Task<SubTaskResponse> CreateAsync(
@@ -31,6 +34,12 @@ public class SubTaskService : ISubTaskService
         // BR-012, BR-020 & BR-029: Sahip veya Paylaşılan alt görev ekleyebilir, silinmiş göreve eklenemez
         await _taskAuthorizationService.EnsureCanManageSubTasksAsync(taskId, userId);
 
+        var existingSubTasks = await _subTaskRepository.GetByTaskIdAsync(taskId);
+        if (existingSubTasks.Count >= 50)
+        {
+            throw new ValidationException("Bir göreve en fazla 50 adet alt görev eklenebilir.");
+        }
+
         var subTask = new SubTask
         {
             Id = Guid.NewGuid(),
@@ -42,6 +51,13 @@ public class SubTaskService : ISubTaskService
 
         await _subTaskRepository.AddAsync(subTask);
         await _subTaskRepository.SaveChangesAsync();
+
+        await _activityService.LogActivityAsync(
+            taskId,
+            userId,
+            "Alt Görev Eklendi",
+            $"'{subTask.Title}' adlı alt görev eklendi."
+        );
 
         return MapToResponse(subTask);
     }
@@ -66,6 +82,14 @@ public class SubTaskService : ISubTaskService
 
         await _subTaskRepository.SaveChangesAsync();
 
+        var actionText = subTask.Status == SubTaskStatus.Completed ? "Alt Görev Tamamlandı" : "Alt Görev Açıldı";
+        await _activityService.LogActivityAsync(
+            subTask.TaskId,
+            userId,
+            actionText,
+            $"'{subTask.Title}' adlı alt görevin durumu değiştirildi."
+        );
+
         return MapToResponse(subTask);
     }
 
@@ -76,6 +100,13 @@ public class SubTaskService : ISubTaskService
 
         _subTaskRepository.Delete(subTask);
         await _subTaskRepository.SaveChangesAsync();
+
+        await _activityService.LogActivityAsync(
+            subTask.TaskId,
+            userId,
+            "Alt Görev Silindi",
+            $"'{subTask.Title}' adlı alt görev silindi."
+        );
     }
 
     private static SubTaskResponse MapToResponse(SubTask subTask)

@@ -11,5 +11,9 @@ public interface IAuthService
     Task ForgotPasswordAsync(ForgotPasswordRequest request);
     Task ResetPasswordAsync(ResetPasswordRequest request);
     Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
+    Task<TwoFactorEnableResponse> EnableTwoFactorAsync(Guid userId);
+    Task VerifyTwoFactorSetupAsync(Guid userId, TwoFactorVerifyRequest request);
+    Task<AuthResponse> LoginWithTwoFactorAsync(TwoFactorLoginRequest request);
+    Task DisableTwoFactorAsync(Guid userId, TwoFactorVerifyRequest request);
+    Task DeleteAccountAsync(Guid userId);
 }
-

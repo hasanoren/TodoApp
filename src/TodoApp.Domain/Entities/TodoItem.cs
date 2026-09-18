@@ -22,6 +22,7 @@ public class TodoItem
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public DateTime? DueDate { get; set; }
+    public DateTime? ReminderSentAt { get; set; }
     public TodoItemStatus Status { get; set; } = TodoItemStatus.Open;
     public TodoItemPriority Priority { get; set; } = TodoItemPriority.Medium;
 
@@ -44,5 +45,6 @@ public class TodoItem
 
     // BR-014: Bir görev birden fazla kullanıcıyla paylaşılabilir
     public ICollection<TaskShare> TaskShares { get; set; } = new List<TaskShare>();
+    public ICollection<TodoItemActivity> Activities { get; set; } = new List<TodoItemActivity>();
 }
 

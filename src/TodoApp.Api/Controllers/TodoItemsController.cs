@@ -101,5 +101,16 @@ public class TodoItemsController : ControllerBase
 
         return userId;
     }
+
+    [HttpGet("{id}/activities")]
+    public async Task<IActionResult> GetActivities(Guid id)
+    {
+        var userId = GetCurrentUserId();
+
+        var _activityService = HttpContext.RequestServices.GetRequiredService<ITodoItemActivityService>();
+        var activities = await _activityService.GetActivitiesByTaskIdAsync(id, userId);
+
+        return Ok(activities);
+    }
 }
 

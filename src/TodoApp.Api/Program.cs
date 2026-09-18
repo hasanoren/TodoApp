@@ -83,6 +83,7 @@ builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoListRepository, T
 
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoItemService, TodoApp.Application.Services.TodoItemService>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoListService, TodoApp.Application.Services.TodoListService>();
+builder.Services.AddHostedService<TodoApp.Api.BackgroundServices.TodoReminderService>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ISubTaskRepository, TodoApp.Infrastructure.Repositories.SubTaskRepository>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ISubTaskService, TodoApp.Application.Services.SubTaskService>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ITagRepository, TodoApp.Infrastructure.Repositories.TagRepository>();
@@ -92,7 +93,10 @@ builder.Services.AddScoped<TodoApp.Application.Interfaces.ITaskShareService, Tod
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ITaskAuthorizationService, TodoApp.Application.Services.TaskAuthorizationService>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.IOwnershipTransferRequestRepository, TodoApp.Infrastructure.Repositories.OwnershipTransferRequestRepository>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.ITaskTransferService, TodoApp.Application.Services.TaskTransferService>();
-
+builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoItemActivityRepository, TodoApp.Infrastructure.Repositories.TodoItemActivityRepository>();
+builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoItemActivityService, TodoApp.Application.Services.TodoItemActivityService>();
+builder.Services.AddScoped<TodoApp.Application.Interfaces.INotificationService, TodoApp.Api.Services.SignalRNotificationService>();
+builder.Services.AddSignalR();
 // ---- T8.2.2: Strongly-Typed Options Pattern ----
 builder.Services.Configure<TodoApp.Application.Settings.JwtSettings>(
     builder.Configuration.GetSection(TodoApp.Application.Settings.JwtSettings.SectionName));
@@ -142,6 +146,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtSettings.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key))
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -170,5 +188,6 @@ app.UseAuthorization();
 
 app.MapAppHealthChecks();
 app.MapControllers();
+app.MapHub<TodoApp.Api.Hubs.TodoHub>("/hubs/todo");
 
 app.Run();

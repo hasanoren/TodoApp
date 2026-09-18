@@ -11,15 +11,21 @@ public class TodoItemService : ITodoItemService
 {
     private readonly ITodoItemRepository _todoItemRepository;
     private readonly ITaskAuthorizationService _taskAuthorizationService;
+    private readonly INotificationService _notificationService;
+    private readonly ITodoItemActivityService _activityService;
     private readonly ILogger<TodoItemService> _logger;
 
     public TodoItemService(
         ITodoItemRepository todoItemRepository,
         ITaskAuthorizationService taskAuthorizationService,
+        INotificationService notificationService,
+        ITodoItemActivityService activityService,
         ILogger<TodoItemService>? logger = null)
     {
         _todoItemRepository = todoItemRepository;
         _taskAuthorizationService = taskAuthorizationService;
+        _notificationService = notificationService;
+        _activityService = activityService;
         _logger = logger ?? NullLogger<TodoItemService>.Instance;
     }
 
@@ -40,6 +46,8 @@ public class TodoItemService : ITodoItemService
 
         await _todoItemRepository.AddAsync(todoItem);
         await _todoItemRepository.SaveChangesAsync();
+
+        await _activityService.LogActivityAsync(todoItem.Id, userId, "Oluşturuldu", "Görev oluşturuldu.");
 
         _logger.LogInformation("Görev başarıyla oluşturuldu. TaskId: {TaskId}, OwnerId: {OwnerId}, Title: {Title}", todoItem.Id, userId, todoItem.Title);
 
@@ -89,6 +97,17 @@ public class TodoItemService : ITodoItemService
 
         await _todoItemRepository.SaveChangesAsync();
 
+        await _activityService.LogActivityAsync(todoItemId, userId, "Güncellendi", "Görevin detayları güncellendi.");
+
+        if (userId != todoItem.OwnerId)
+        {
+            await _notificationService.SendNotificationAsync(
+                todoItem.OwnerId,
+                "Görev Güncellendi",
+                $"Paylaştığınız '{todoItem.Title}' adlı görev güncellendi."
+            );
+        }
+
         _logger.LogInformation("Görev güncellendi. TaskId: {TaskId}, UserId: {UserId}", todoItemId, userId);
 
         return MapToResponse(todoItem, userId);
@@ -98,12 +117,31 @@ public class TodoItemService : ITodoItemService
     {
         var todoItem = await _taskAuthorizationService.EnsureCanCompleteAsync(todoItemId, userId);
 
-        // BR-015: CompletedByUserId ve CompletedAt set edilir, paylaşım kalksa da korunur
-        todoItem.Status = TodoItemStatus.Completed;
-        todoItem.CompletedByUserId = userId;
-        todoItem.CompletedAt = DateTime.UtcNow;
+        if (todoItem.Status == TodoItemStatus.Completed)
+        {
+            todoItem.Status = TodoItemStatus.Open;
+            todoItem.CompletedByUserId = null;
+            todoItem.CompletedAt = null;
+            await _activityService.LogActivityAsync(todoItemId, userId, "Tekrar Açıldı", "Görev tekrar açıldı (Open).");
+        }
+        else
+        {
+            todoItem.Status = TodoItemStatus.Completed;
+            todoItem.CompletedByUserId = userId;
+            todoItem.CompletedAt = DateTime.UtcNow;
+            await _activityService.LogActivityAsync(todoItemId, userId, "Tamamlandı", "Görev tamamlandı.");
+        }
 
         await _todoItemRepository.SaveChangesAsync();
+
+        if (userId != todoItem.OwnerId)
+        {
+            await _notificationService.SendNotificationAsync(
+                todoItem.OwnerId,
+                "Görev Tamamlandı",
+                $"Paylaştığınız '{todoItem.Title}' adlı görev tamamlandı."
+            );
+        }
 
         _logger.LogInformation("Görev tamamlandı. TaskId: {TaskId}, CompletedByUserId: {UserId}", todoItemId, userId);
 
@@ -121,6 +159,8 @@ public class TodoItemService : ITodoItemService
         todoItem.DeletedAt = DateTime.UtcNow;
 
         await _todoItemRepository.SaveChangesAsync();
+
+        await _activityService.LogActivityAsync(todoItemId, userId, "Silindi", "Görev çöp kutusuna taşındı.");
 
         _logger.LogInformation("Görev çöp kutusuna taşındı (soft delete). TaskId: {TaskId}, DeletedByUserId: {UserId}", todoItemId, userId);
     }
@@ -163,6 +203,8 @@ public class TodoItemService : ITodoItemService
         }
 
         await _todoItemRepository.SaveChangesAsync();
+
+        await _activityService.LogActivityAsync(todoItemId, userId, "Geri Yüklendi", "Görev çöp kutusundan geri yüklendi.");
 
         _logger.LogInformation("Görev çöp kutusundan geri yüklendi. TaskId: {TaskId}, OwnerId: {OwnerId}", todoItemId, userId);
 

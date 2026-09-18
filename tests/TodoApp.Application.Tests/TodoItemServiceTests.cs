@@ -21,7 +21,9 @@ public class TodoItemServiceTests
         _mockRepo = new Mock<ITodoItemRepository>();
         _mockSubTaskRepo = new Mock<ISubTaskRepository>();
         var authService = new TaskAuthorizationService(_mockRepo.Object, _mockSubTaskRepo.Object);
-        _service = new TodoItemService(_mockRepo.Object, authService);
+        var notificationServiceMock = new Mock<INotificationService>();
+        var activityServiceMock = new Mock<ITodoItemActivityService>();
+        _service = new TodoItemService(_mockRepo.Object, authService, notificationServiceMock.Object, activityServiceMock.Object);
     }
 
     // --- BR-029: Yetkisiz erişimde 404 ---

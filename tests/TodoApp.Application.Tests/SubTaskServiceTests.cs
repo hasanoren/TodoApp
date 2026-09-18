@@ -22,7 +22,8 @@ public class SubTaskServiceTests
         _mockSubTaskRepo = new Mock<ISubTaskRepository>();
         _mockTodoItemRepo = new Mock<ITodoItemRepository>();
         var authService = new TaskAuthorizationService(_mockTodoItemRepo.Object, _mockSubTaskRepo.Object);
-        _service = new SubTaskService(_mockSubTaskRepo.Object, authService);
+        var activityServiceMock = new Mock<ITodoItemActivityService>();
+        _service = new SubTaskService(_mockSubTaskRepo.Object, authService, activityServiceMock.Object);
     }
 
     // --- CREATE TESTS ---
@@ -38,6 +39,9 @@ public class SubTaskServiceTests
             .ReturnsAsync(parentTask);
 
         var request = new CreateSubTaskRequest { Title = "Veritabanı şemasını çiz" };
+
+        var subTasksList = new List<SubTask>();
+        _mockSubTaskRepo.Setup(r => r.GetByTaskIdAsync(parentTask.Id)).ReturnsAsync(subTasksList);
 
         // ACT
         var result = await _service.CreateAsync(_ownerId, parentTask.Id, request);
@@ -63,6 +67,9 @@ public class SubTaskServiceTests
             .ReturnsAsync(parentTask);
 
         var request = new CreateSubTaskRequest { Title = "Paylaşılan kullanıcının eklediği alt görev" };
+
+        var subTasksList = new List<SubTask>();
+        _mockSubTaskRepo.Setup(r => r.GetByTaskIdAsync(parentTask.Id)).ReturnsAsync(subTasksList);
 
         // ACT
         var result = await _service.CreateAsync(_sharedUserId, parentTask.Id, request);

@@ -113,21 +113,58 @@ public class AuthController : ControllerBase
 
     [Authorize]
     [HttpPut("change-password")]
-    public async Task<IActionResult> ChangePassword(
-        ChangePasswordRequest request)
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
-        var userIdClaim =
-            User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
         if (!Guid.TryParse(userIdClaim, out var userId))
         {
             return Unauthorized();
         }
 
-        await _authService.ChangePasswordAsync(
-            userId,
-            request);
+        await _authService.ChangePasswordAsync(userId, request);
 
         return NoContent();
+    }
+
+    [HttpPost("login-2fa")]
+    public async Task<IActionResult> LoginWithTwoFactor([FromBody] TwoFactorLoginRequest request)
+    {
+        var response = await _authService.LoginWithTwoFactorAsync(request);
+        return Ok(response);
+    }
+
+    [HttpPost("2fa/enable")]
+    [Authorize]
+    public async Task<IActionResult> EnableTwoFactor()
+    {
+        var userId = GetUserId();
+        var response = await _authService.EnableTwoFactorAsync(userId);
+        return Ok(response);
+    }
+
+    [HttpPost("2fa/verify")]
+    [Authorize]
+    public async Task<IActionResult> VerifyTwoFactor([FromBody] TwoFactorVerifyRequest request)
+    {
+        var userId = GetUserId();
+        await _authService.VerifyTwoFactorSetupAsync(userId, request);
+        return Ok(new { message = "İki adımlı doğrulama başarıyla aktifleştirildi." });
+    }
+
+    [HttpPost("2fa/disable")]
+    [Authorize]
+    public async Task<IActionResult> DisableTwoFactor([FromBody] TwoFactorVerifyRequest request)
+    {
+        var userId = GetUserId();
+        await _authService.DisableTwoFactorAsync(userId, request);
+        return Ok(new { message = "İki adımlı doğrulama devre dışı bırakıldı." });
+    }
+
+    private Guid GetUserId()
+    {
+        var claim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+        if (claim == null) throw new UnauthorizedAccessException();
+        return Guid.Parse(claim.Value);
     }
 }

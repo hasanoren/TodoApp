@@ -27,11 +27,15 @@ public class TaskShareServiceTests
         _mockUserRepo = new Mock<IUserRepository>();
 
         var authService = new TaskAuthorizationService(_mockTodoItemRepo.Object, _mockSubTaskRepo.Object);
+        var notificationServiceMock = new Mock<INotificationService>();
+        var activityServiceMock = new Mock<ITodoItemActivityService>();
 
         _service = new TaskShareService(
             _mockTaskShareRepo.Object,
             _mockUserRepo.Object,
-            authService);
+            authService,
+            notificationServiceMock.Object,
+            activityServiceMock.Object);
     }
 
     // --- SHARE TASK TESTS ---

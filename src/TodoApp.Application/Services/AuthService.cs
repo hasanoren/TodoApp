@@ -7,6 +7,7 @@ using TodoApp.Application.Interfaces;
 using TodoApp.Application.Settings;
 using TodoApp.Domain.Entities;
 using TodoApp.Domain.Exceptions;
+using OtpNet;
 
 namespace TodoApp.Application.Services;
 
@@ -83,6 +84,16 @@ public class AuthService : IAuthService
         {
             _logger.LogWarning("Başarısız giriş denemesi. Email: {Email}", request.Email);
             throw new ValidationException("E-posta veya şifre hatalı.");
+        }
+
+        if (user.TwoFactorEnabled)
+        {
+            _logger.LogInformation("2FA gerekli. UserId: {UserId}", user.Id);
+            return new AuthResponse
+            {
+                RequiresTwoFactor = true,
+                UserId = user.Id
+            };
         }
 
         _logger.LogInformation("Kullanıcı başarıyla giriş yaptı. UserId: {UserId}, Email: {Email}", user.Id, user.Email);
@@ -251,5 +262,101 @@ public class AuthService : IAuthService
 
         await _userRepository.SaveChangesAsync();
         _logger.LogInformation("Kullanıcı şifresini değiştirdi ve tüm oturumları geçersiz kılındı. UserId: {UserId}", userId);
+    }
+
+    public async Task<TwoFactorEnableResponse> EnableTwoFactorAsync(Guid userId)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user is null) throw new ValidationException("Kullanıcı bulunamadı.");
+
+        var key = KeyGeneration.GenerateRandomKey(20);
+        var base32Secret = Base32Encoding.ToString(key);
+
+        user.TwoFactorSecret = base32Secret;
+        user.TwoFactorEnabled = false;
+
+        await _userRepository.SaveChangesAsync();
+
+        var issuer = "TodoApp";
+        var accountTitle = Uri.EscapeDataString(user.Email);
+        var qrCodeUri = $"otpauth://totp/{issuer}:{accountTitle}?secret={base32Secret}&issuer={issuer}";
+
+        return new TwoFactorEnableResponse
+        {
+            Secret = base32Secret,
+            QrCodeUri = qrCodeUri
+        };
+    }
+
+    public async Task VerifyTwoFactorSetupAsync(Guid userId, TwoFactorVerifyRequest request)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user is null || string.IsNullOrEmpty(user.TwoFactorSecret))
+            throw new ValidationException("Geçersiz istek.");
+
+        var base32Bytes = Base32Encoding.ToBytes(user.TwoFactorSecret);
+        var totp = new Totp(base32Bytes);
+
+        if (!totp.VerifyTotp(request.Code, out long timeStepMatched, window: new VerificationWindow(previous: 1, future: 1)))
+        {
+            throw new ValidationException("Geçersiz veya süresi dolmuş kod.");
+        }
+
+        user.TwoFactorEnabled = true;
+        await _userRepository.SaveChangesAsync();
+
+        _logger.LogInformation("2FA aktifleştirildi. UserId: {UserId}", userId);
+    }
+
+    public async Task<AuthResponse> LoginWithTwoFactorAsync(TwoFactorLoginRequest request)
+    {
+        var user = await _userRepository.GetByIdAsync(request.UserId);
+        if (user is null || !user.TwoFactorEnabled || string.IsNullOrEmpty(user.TwoFactorSecret))
+        {
+            throw new ValidationException("Geçersiz istek.");
+        }
+
+        var base32Bytes = Base32Encoding.ToBytes(user.TwoFactorSecret);
+        var totp = new Totp(base32Bytes);
+
+        if (!totp.VerifyTotp(request.Code, out long timeStepMatched, window: new VerificationWindow(previous: 1, future: 1)))
+        {
+            throw new ValidationException("Geçersiz veya süresi dolmuş kod.");
+        }
+
+        _logger.LogInformation("2FA girişi başarılı. UserId: {UserId}", user.Id);
+        return await GenerateAuthResponseAsync(user);
+    }
+
+    public async Task DisableTwoFactorAsync(Guid userId, TwoFactorVerifyRequest request)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null) throw new NotFoundException("Kullanıcı bulunamadı.");
+
+        if (!user.TwoFactorEnabled)
+        {
+            throw new ValidationException("İki adımlı doğrulama zaten devre dışı.");
+        }
+
+        var totp = new Totp(Base32Encoding.ToBytes(user.TwoFactorSecret));
+        if (!totp.VerifyTotp(request.Code, out _, VerificationWindow.RfcSpecifiedNetworkDelay))
+        {
+            throw new ValidationException("Geçersiz doğrulama kodu.");
+        }
+
+        user.TwoFactorEnabled = false;
+        user.TwoFactorSecret = string.Empty;
+
+        await _userRepository.SaveChangesAsync();
+        _logger.LogInformation("2FA devre dışı bırakıldı. UserId: {UserId}", userId);
+    }
+
+    public async Task DeleteAccountAsync(Guid userId)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null) throw new NotFoundException("Kullanıcı bulunamadı.");
+
+        _userRepository.Delete(user);
+        await _userRepository.SaveChangesAsync();
     }
 }

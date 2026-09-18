@@ -1,0 +1,70 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Moq;
+using TodoApp.Api.BackgroundServices;
+using TodoApp.Application.Interfaces;
+using TodoApp.Domain.Entities;
+using TodoApp.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+using Xunit;
+using TodoApp.Domain.Enums;
+using System.Reflection;
+
+namespace TodoApp.Application.Tests.BackgroundServices;
+
+public class TodoReminderServiceTests
+{
+    [Fact]
+    public async Task CheckAndSendRemindersAsync_ShouldSendEmail_WhenTaskIsApproaching()
+    {
+        // Arrange
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        var dbContext = new ApplicationDbContext(options);
+        
+        var owner = new User { Id = Guid.NewGuid(), Email = "test@example.com", PasswordHash = "hash" };
+        dbContext.Users.Add(owner);
+
+        var task = new TodoItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Test Task",
+            OwnerId = owner.Id,
+            DueDate = DateTime.UtcNow.AddHours(5), // 24 saatten az
+            Status = TodoItemStatus.Open,
+            ReminderSentAt = null
+        };
+        dbContext.TodoItems.Add(task);
+        await dbContext.SaveChangesAsync();
+
+        var emailSenderMock = new Mock<IEmailSender>();
+        
+        var serviceProviderMock = new Mock<IServiceProvider>();
+        var serviceScopeMock = new Mock<IServiceScope>();
+        var serviceScopeFactoryMock = new Mock<IServiceScopeFactory>();
+
+        serviceProviderMock.Setup(x => x.GetService(typeof(ApplicationDbContext))).Returns(dbContext);
+        serviceProviderMock.Setup(x => x.GetService(typeof(IEmailSender))).Returns(emailSenderMock.Object);
+        
+        serviceScopeMock.Setup(x => x.ServiceProvider).Returns(serviceProviderMock.Object);
+        serviceScopeFactoryMock.Setup(x => x.CreateScope()).Returns(serviceScopeMock.Object);
+        serviceProviderMock.Setup(x => x.GetService(typeof(IServiceScopeFactory))).Returns(serviceScopeFactoryMock.Object);
+
+        var loggerMock = new Mock<ILogger<TodoReminderService>>();
+        var reminderService = new TodoReminderService(loggerMock.Object, serviceProviderMock.Object);
+
+        // Act
+        // Reflection kullanarak private CheckAndSendRemindersAsync metodunu çağıralım
+        var methodInfo = typeof(TodoReminderService).GetMethod("CheckAndSendRemindersAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+        var taskResult = (Task)methodInfo!.Invoke(reminderService, new object[] { CancellationToken.None })!;
+        await taskResult;
+
+        // Assert
+        emailSenderMock.Verify(x => x.SendEmailAsync("test@example.com", It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+        
+        var updatedTask = await dbContext.TodoItems.FindAsync(task.Id);
+        Assert.NotNull(updatedTask!.ReminderSentAt);
+    }
+}

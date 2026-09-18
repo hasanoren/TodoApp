@@ -30,6 +30,22 @@ public class UserRepository : IUserRepository
         await _context.SaveChangesAsync();
     }
 
+    public void Delete(User user)
+    {
+        // SQL Server multiple cascade paths nedeniyle NoAction olan ilişkileri manuel temizliyoruz
+        _context.TodoItems.Where(t => t.CompletedByUserId == user.Id)
+            .ExecuteUpdate(s => s.SetProperty(t => t.CompletedByUserId, (Guid?)null));
+
+        _context.TodoItems.Where(t => t.DeletedByUserId == user.Id)
+            .ExecuteUpdate(s => s.SetProperty(t => t.DeletedByUserId, (Guid?)null));
+
+        _context.TaskShares.Where(ts => ts.UserId == user.Id).ExecuteDelete();
+
+        _context.OwnershipTransferRequests.Where(otr => otr.FromUserId == user.Id || otr.ToUserId == user.Id).ExecuteDelete();
+
+        _context.Users.Remove(user);
+    }
+
     public async Task<User?> GetByIdAsync(Guid id)
     {
         return await _context.Users
