@@ -122,5 +122,46 @@ public class RateLimitingIntegrationTests : IClassFixture<CustomWebApplicationFa
         Assert.Equal(429, problem.Status);
         Assert.Equal("/api/Auth/forgot-password", problem.Instance);
     }
+
+    [Fact]
+    public async Task AuthenticatedUser_ExceedingWriteLimit_Returns429TooManyRequests()
+    {
+        // ARRANGE: Giriş yapmış bir kullanıcı için 30 yazma isteği sonrası 31. istekte 429 dönmeli
+        var client = _factory.CreateClient();
+        var email = $"auth_ratelimit_{Guid.NewGuid():N}@example.com";
+        var password = "Password123!";
+
+        var regRes = await client.PostAsJsonAsync("/api/Auth/register", new RegisterRequest { Email = email, Password = password });
+        var auth = await regRes.Content.ReadFromJsonAsync<AuthResponse>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(auth);
+
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", auth.Token);
+
+        // ACT: 30 adet yazma (POST) isteği gönder (Create Task)
+        for (int i = 0; i < 30; i++)
+        {
+            var res = await client.PostAsJsonAsync("/api/TodoItems", new CreateTodoItemRequest
+            {
+                Title = $"Task {i}"
+            });
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, res.StatusCode);
+        }
+
+        // 31. istek limiti (30/dk) aştığı için 429 Too Many Requests dönmeli
+        var throttledRes = await client.PostAsJsonAsync("/api/TodoItems", new CreateTodoItemRequest
+        {
+            Title = "Task 31"
+        });
+
+        // ASSERT
+        Assert.Equal(HttpStatusCode.TooManyRequests, throttledRes.StatusCode);
+        Assert.Equal("application/problem+json", throttledRes.Content.Headers.ContentType?.MediaType);
+
+        var problem = await throttledRes.Content.ReadFromJsonAsync<ProblemDetails>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        Assert.NotNull(problem);
+        Assert.Equal(429, problem.Status);
+    }
 }
 

@@ -19,7 +19,14 @@ public class SecurityHeadersMiddleware
             headers["X-Frame-Options"] = "DENY";
             headers["X-XSS-Protection"] = "1; mode=block";
             headers["Referrer-Policy"] = "no-referrer";
-            headers["Content-Security-Policy"] = "default-src 'self'";
+            if (context.Request.Path.StartsWithSegments("/test-signalr") || context.Request.Path.StartsWithSegments("/swagger"))
+            {
+                headers["Content-Security-Policy"] = "default-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; connect-src 'self' ws: wss:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline';";
+            }
+            else
+            {
+                headers["Content-Security-Policy"] = "default-src 'self'";
+            }
 
             if (context.Request.IsHttps)
             {

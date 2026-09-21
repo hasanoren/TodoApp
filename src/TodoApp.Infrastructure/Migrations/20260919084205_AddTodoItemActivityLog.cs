@@ -35,8 +35,7 @@ namespace TodoApp.Infrastructure.Migrations
                         name: "FK_TodoItemActivities_Users_UserId",
                         column: x => x.UserId,
                         principalTable: "Users",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateIndex(

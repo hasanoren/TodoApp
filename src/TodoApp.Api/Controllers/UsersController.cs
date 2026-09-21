@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces;
 
 namespace TodoApp.Api.Controllers;
@@ -18,12 +19,12 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("me")]
-    public async Task<IActionResult> DeleteMe()
+    public async Task<IActionResult> DeleteMe([FromBody] DeleteAccountRequest request)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (!Guid.TryParse(userIdClaim, out var userId)) return Unauthorized();
 
-        await _authService.DeleteAccountAsync(userId);
+        await _authService.DeleteAccountAsync(userId, request.Password);
 
         return NoContent();
     }

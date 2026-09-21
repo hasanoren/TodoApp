@@ -76,14 +76,41 @@ public class AuthService : IAuthService
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var user = await _userRepository.GetByEmailAsync(normalizedEmail);
 
+        // Hesap kilitli mi kontrolü (T10.2.1)
+        if (user != null && user.LockoutEnd.HasValue && user.LockoutEnd.Value > DateTime.UtcNow)
+        {
+            var remainingMinutes = Math.Ceiling((user.LockoutEnd.Value - DateTime.UtcNow).TotalMinutes);
+            _logger.LogWarning("Kilitli hesaba giriş denemesi. Email: {Email}, Kalan Süre: {Minutes} dk", request.Email, remainingMinutes);
+            throw new ValidationException($"Çok fazla hatalı giriş denemesi yapıldı. Hesabınız geçici olarak kilitlendi. Lütfen {remainingMinutes} dakika sonra tekrar deneyin.");
+        }
+
         // Kullanıcı bulunamasa dahi sahte hash ile doğrulama çalıştırılarak süre eşitlenir
         var passwordHash = user?.PasswordHash ?? DummyHash;
         var isPasswordValid = _passwordHasher.VerifyPassword(request.Password, passwordHash);
 
         if (user is null || !isPasswordValid)
         {
+            if (user is not null)
+            {
+                user.FailedLoginAttempts++;
+                if (user.FailedLoginAttempts >= 5)
+                {
+                    user.LockoutEnd = DateTime.UtcNow.AddMinutes(15);
+                    _logger.LogWarning("Kullanıcı hesabı 5 hatalı deneme nedeniyle 15 dakika kilitlendi. UserId: {UserId}", user.Id);
+                }
+                await _userRepository.SaveChangesAsync();
+            }
+
             _logger.LogWarning("Başarısız giriş denemesi. Email: {Email}", request.Email);
             throw new ValidationException("E-posta veya şifre hatalı.");
+        }
+
+        // Başarılı giriş: Sayaç ve kilidi sıfırla
+        if (user.FailedLoginAttempts > 0 || user.LockoutEnd.HasValue)
+        {
+            user.FailedLoginAttempts = 0;
+            user.LockoutEnd = null;
+            await _userRepository.SaveChangesAsync();
         }
 
         if (user.TwoFactorEnabled)
@@ -199,12 +226,20 @@ public class AuthService : IAuthService
     <p>Bu link {_passwordResetSettings.ExpiryMinutes} dakika geçerlidir.</p>
     """;
 
-        await _emailSender.SendEmailAsync(
-            user.Email,
-            "TodoApp - Şifre Sıfırlama",
-            htmlBody);
+        try
+        {
+            await _emailSender.SendEmailAsync(
+                user.Email,
+                "TodoApp - Şifre Sıfırlama",
+                htmlBody);
 
-        _logger.LogInformation("Şifre sıfırlama e-postası gönderildi. Email: {Email}", user.Email);
+            _logger.LogInformation("Şifre sıfırlama e-postası gönderildi. Email: {Email}", user.Email);
+        }
+        catch (Exception ex)
+        {
+            // Güvenlik (T10.2.3): SMTP hatası 500 fırlatarak kullanıcı tespiti (enumeration) yapılmasına izin vermesin
+            _logger.LogError(ex, "Şifre sıfırlama e-postası gönderilirken hata oluştu. Email: {Email}", user.Email);
+        }
     }
 
     public async Task ResetPasswordAsync(ResetPasswordRequest request)
@@ -218,6 +253,7 @@ public class AuthService : IAuthService
         }
 
         storedToken.User.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
+        storedToken.User.SecurityStamp = Guid.NewGuid(); // T10.2.2: Mevcut JWT'leri iptal et
         storedToken.IsUsed = true;
 
         // Güvenlik (T8.1.6): Şifre sıfırlandığında tüm açık oturumları geçersiz kıl
@@ -253,6 +289,7 @@ public class AuthService : IAuthService
 
         user.PasswordHash =
             _passwordHasher.HashPassword(request.NewPassword);
+        user.SecurityStamp = Guid.NewGuid(); // T10.2.2: Mevcut JWT'leri iptal et
 
         // Kullanıcının tüm refresh tokenlarını geçersiz hale getir
         foreach (var refreshToken in user.RefreshTokens)
@@ -303,6 +340,7 @@ public class AuthService : IAuthService
         }
 
         user.TwoFactorEnabled = true;
+        user.SecurityStamp = Guid.NewGuid(); // T10.2.2: Mevcut JWT'leri iptal et
         await _userRepository.SaveChangesAsync();
 
         _logger.LogInformation("2FA aktifleştirildi. UserId: {UserId}", userId);
@@ -346,17 +384,26 @@ public class AuthService : IAuthService
 
         user.TwoFactorEnabled = false;
         user.TwoFactorSecret = string.Empty;
+        user.SecurityStamp = Guid.NewGuid(); // T10.2.2: Mevcut JWT'leri iptal et
 
         await _userRepository.SaveChangesAsync();
         _logger.LogInformation("2FA devre dışı bırakıldı. UserId: {UserId}", userId);
     }
 
-    public async Task DeleteAccountAsync(Guid userId)
+    public async Task DeleteAccountAsync(Guid userId, string password)
     {
         var user = await _userRepository.GetByIdAsync(userId);
         if (user == null) throw new NotFoundException("Kullanıcı bulunamadı.");
 
-        _userRepository.Delete(user);
-        await _userRepository.SaveChangesAsync();
+        // T10.2.5: Hesap silme gibi kritik bir işlem öncesi parola doğrulaması (Re-authentication) zorunludur
+        var isPasswordValid = _passwordHasher.VerifyPassword(password, user.PasswordHash);
+        if (!isPasswordValid)
+        {
+            _logger.LogWarning("Hesap silme başarısız: Hatalı parola. UserId: {UserId}", userId);
+            throw new ValidationException("Şifre hatalı.");
+        }
+
+        await _userRepository.DeleteAsync(user);
+        _logger.LogInformation("Kullanıcı hesabı başarıyla silindi. UserId: {UserId}", userId);
     }
 }

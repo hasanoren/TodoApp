@@ -12,7 +12,7 @@ using TodoApp.Infrastructure.Data;
 namespace TodoApp.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260918044608_AddTodoItemActivityLog")]
+    [Migration("20260919084205_AddTodoItemActivityLog")]
     partial class AddTodoItemActivityLog
     {
         /// <inheritdoc />
@@ -510,7 +510,7 @@ namespace TodoApp.Infrastructure.Migrations
                     b.HasOne("TodoApp.Domain.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("TodoItem");

@@ -32,6 +32,12 @@ public class SubTaskRepository : ISubTaskRepository
             .ToListAsync();
     }
 
+    public async Task<int> CountByTaskIdAsync(Guid taskId)
+    {
+        return await _context.SubTasks
+            .CountAsync(st => st.TaskId == taskId);
+    }
+
     public async Task AddAsync(SubTask subTask)
     {
         await _context.SubTasks.AddAsync(subTask);

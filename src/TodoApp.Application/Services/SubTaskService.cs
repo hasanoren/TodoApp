@@ -34,8 +34,8 @@ public class SubTaskService : ISubTaskService
         // BR-012, BR-020 & BR-029: Sahip veya Paylaşılan alt görev ekleyebilir, silinmiş göreve eklenemez
         await _taskAuthorizationService.EnsureCanManageSubTasksAsync(taskId, userId);
 
-        var existingSubTasks = await _subTaskRepository.GetByTaskIdAsync(taskId);
-        if (existingSubTasks.Count >= 50)
+        var subTaskCount = await _subTaskRepository.CountByTaskIdAsync(taskId);
+        if (subTaskCount >= 50)
         {
             throw new ValidationException("Bir göreve en fazla 50 adet alt görev eklenebilir.");
         }

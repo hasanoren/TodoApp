@@ -15,5 +15,5 @@ public interface IAuthService
     Task VerifyTwoFactorSetupAsync(Guid userId, TwoFactorVerifyRequest request);
     Task<AuthResponse> LoginWithTwoFactorAsync(TwoFactorLoginRequest request);
     Task DisableTwoFactorAsync(Guid userId, TwoFactorVerifyRequest request);
-    Task DeleteAccountAsync(Guid userId);
+    Task DeleteAccountAsync(Guid userId, string password);
 }

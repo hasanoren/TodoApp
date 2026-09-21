@@ -174,5 +174,21 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(r => r.ToUserId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
+
+        // TodoItemActivity yapılandırması - SQL Server multiple cascade paths önlemek için NoAction
+        modelBuilder.Entity<TodoItemActivity>(entity =>
+        {
+            entity.HasKey(a => a.Id);
+
+            entity.HasOne(a => a.TodoItem)
+                .WithMany(t => t.Activities)
+                .HasForeignKey(a => a.TodoItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(a => a.User)
+                .WithMany()
+                .HasForeignKey(a => a.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
     }
 }

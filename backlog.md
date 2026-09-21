@@ -272,7 +272,8 @@ Her task'ta ilgili BR-XXX numarası belirtilmiştir. Bir task'ı uygularken ilgi
 9. **EPIC 7** (Kapsamlı Test & Kalite Matrisi) — ✅ Tamamlandı (test_matrix.md, Cascade testleri, smoke guide)
 10. **EPIC 8** (Production Hardening) — ✅ Tamamlandı (Rate Limiting, CORS, Headers, Secrets, Options, MaxLength, Index Seek, RFC 7807, AsNoTracking, Health Checks, Serilog)
 11. **EPIC 9** (İleri Seviye Özellikler & UX) — ✅ Tamamlandı
-12. **EPIC 10** (Refactor & Hardening) — 📋 Backlog'da bekliyor
+12. **EPIC 10** (Refactor & Hardening) — ✅ Tamamlandı
+13. **EPIC 11** (Deployment & Production Hazırlığı) — 📋 Backlog'da bekliyor
 
 ---
 
@@ -281,22 +282,42 @@ Her task'ta ilgili BR-XXX numarası belirtilmiştir. Bir task'ı uygularken ilgi
 > **Kaynak:** 18 Eylül 2026 tarihli backlog analiz raporu. Bottleneck, güvenlik ve operasyon eksiklerinin giderilmesi.
 
 ### User Story 10.1 — Performans Darboğazlarının Giderilmesi (Bottleneck Fixes)
-- [ ] T10.1.1 — **Hatırlatıcı Servisi Batch Processing:** `TodoReminderService` içinde tüm görevleri tek seferde belleğe çekmek yerine sayfalama (batch) ile 100'erli gruplar halinde işlenmesi
-- [ ] T10.1.2 — **Alt Görev Sayım Optimizasyonu:** `SubTaskService.CreateAsync` içindeki limit kontrolünde `GetByTaskIdAsync` (tüm entity'leri yükler) yerine `CountByTaskIdAsync` (`SELECT COUNT(*)`) metodu eklenmesi
-- [ ] T10.1.3 — **Aktivite Logu Asenkron Yazımı:** `_activityService.LogActivityAsync` çağrılarının ana iş akışından ayrılması — `Channel<T>` veya Background Queue ile fire-and-forget pattern uygulanması
-- [ ] T10.1.4 — **SignalR Bildirim Asenkronizasyonu:** `_notificationService.SendNotificationAsync` çağrılarının background queue'ya alınması; SignalR hub yavaşlamasının API yanıt süresini etkilememesi
-- [ ] T10.1.5 — **SignalR Redis Backplane:** Çok sunuculu (scale-out) ortamda farklı sunuculardaki kullanıcıların birbirlerinin bildirimlerini alabilmesi için Redis backplane entegrasyonu
+- [x] T10.1.1 — **Hatırlatıcı Servisi Batch Processing:** `TodoReminderService` içinde tüm görevleri tek seferde belleğe çekmek yerine sayfalama (batch) ile 100'erli gruplar halinde işlenmesi
+- [x] T10.1.2 — **Alt Görev Sayım Optimizasyonu:** `SubTaskService.CreateAsync` içindeki limit kontrolünde `GetByTaskIdAsync` (tüm entity'leri yükler) yerine `CountByTaskIdAsync` (`SELECT COUNT(*)`) metodu eklenmesi
+- [x] T10.1.3 — ~~**Aktivite Logu Asenkron Yazımı:** `_activityService.LogActivityAsync` çağrılarının ana iş akışından ayrılması — `Channel<T>` veya Background Queue ile fire-and-forget pattern uygulanması~~ (İptal: Mevcut ölçek için Over-engineering)
+- [x] T10.1.4 — ~~**SignalR Bildirim Asenkronizasyonu:** `_notificationService.SendNotificationAsync` çağrılarının background queue'ya alınması~~ (İptal: Mevcut ölçek için Over-engineering)
+- [x] T10.1.5 — ~~**SignalR Redis Backplane:** Çok sunuculu (scale-out) ortamda farklı sunuculardaki kullanıcıların birbirlerinin bildirimlerini alabilmesi için Redis backplane entegrasyonu~~ (İptal: Tek sunucu için Over-engineering)
 
 ### User Story 10.2 — Güvenlik İyileştirmeleri (Security Hardening v2)
-- [ ] T10.2.1 — **Hesap Kilitleme (Account Lockout):** `User` entity'sine `FailedLoginAttempts` (int) ve `LockoutEnd` (DateTime?) alanları eklenmesi; 5 ardışık yanlış denemede hesabın 15 dakika kilitlenmesi; başarılı girişte sayacın sıfırlanması
-- [ ] T10.2.2 — **JWT Token İptali (SecurityStamp):** `User` entity'sine `SecurityStamp` (Guid) eklenmesi; şifre değişikliği veya 2FA durumu değiştiğinde stamp yenilenmesi; JWT doğrulamada stamp kontrolü yapılması
-- [ ] T10.2.3 — **ForgotPassword SMTP Hata Sızıntısı Düzeltmesi:** Email gönderim hatasının try-catch ile sarılıp sadece loglanması; her koşulda 200 dönülmesi (user enumeration önleme)
-- [ ] T10.2.4 — **Refresh Token HttpOnly Cookie:** Refresh token'ın JSON body yerine `Set-Cookie: HttpOnly; Secure; SameSite=Strict` ile gönderilmesi; XSS durumunda token çalınmasının engellenmesi
-- [ ] T10.2.5 — **Hesap Silme Parola Doğrulaması:** `DELETE /users/me` endpoint'ine body'de `password` alanı eklenmesi; kritik işlem öncesi re-authentication zorunluluğu
+- [x] T10.2.1 — **Hesap Kilitleme (Account Lockout):** `User` entity'sine `FailedLoginAttempts` (int) ve `LockoutEnd` (DateTime?) alanları eklenmesi; 5 ardışık yanlış denemede hesabın 15 dakika kilitlenmesi; başarılı girişte sayacın sıfırlanması
+- [x] T10.2.2 — **JWT Token İptali (SecurityStamp):** `User` entity'sine `SecurityStamp` (Guid) eklenmesi; şifre değişikliği veya 2FA durumu değiştiğinde stamp yenilenmesi; JWT doğrulamada stamp kontrolü yapılması
+- [x] T10.2.3 — **ForgotPassword SMTP Hata Sızıntısı Düzeltmesi:** Email gönderim hatasının try-catch ile sarılıp sadece loglanması; her koşulda 200 dönülmesi (user enumeration önleme)
+- [x] T10.2.4 — **Refresh Token HttpOnly Cookie:** Refresh token'ın JSON body yerine `Set-Cookie: HttpOnly; Secure; SameSite=Strict` ile gönderilmesi; XSS durumunda token çalınmasının engellenmesi
+- [x] T10.2.5 — **Hesap Silme Parola Doğrulaması:** `DELETE /users/me` endpoint'ine body'de `password` alanı eklenmesi; kritik işlem öncesi re-authentication zorunluluğu
+- [x] T10.2.6 — **Global Authenticated Rate Limiting:** Giriş yapmış kullanıcılar için tüm endpoint'lere kullanıcı bazlı rate limit eklenmesi. Yazma (POST/PUT/PATCH/DELETE) için 30 istek/dk, Okuma (GET) için 60 istek/dk. Mevcut rate limit sadece 3 auth endpoint'inde (login, register, forgot-password) IP bazlı çalışıyor; geri kalan 30+ endpoint sınırsız — veri şişirme, DB yükü ve kaynak tüketimi riski mevcut.
 
 ### User Story 10.3 — Veri Bütünlüğü & Operasyon
-- [ ] T10.3.1 — **Kullanıcı Silme Transaction:** `UserRepository.Delete` içindeki birden fazla `ExecuteUpdate`/`ExecuteDelete` çağrısının tek bir `BeginTransactionAsync` bloğuna alınması
-- [ ] T10.3.2 — **Otomatik Migration Pipeline:** CI/CD pipeline'ına `dotnet ef database update` adımının eklenmesi; deployment sırasında DB şemasının otomatik güncellenmesi
+- [x] T10.3.1 — **Kullanıcı Silme Transaction:** `UserRepository.Delete` içindeki birden fazla `ExecuteUpdate`/`ExecuteDelete` çağrısının tek bir `BeginTransactionAsync` bloğuna alınması
+- [x] T10.3.2 — ~~**Otomatik Migration Pipeline:** CI/CD pipeline'ına `dotnet ef database update` adımının eklenmesi; deployment sırasında DB şemasının otomatik güncellenmesi~~ (İptal: Mevcut senaryo için Over-engineering)
+
+---
+
+## EPIC 11: Deployment & Production Hazırlığı (DevOps & Hosting)
+
+> **Kaynak:** Canlıya alma öncesi güvenlik, ters proxy ve containerization gereksinimleri.
+>
+> 💡 **Ücretsiz Hosting Notu (Azure All-in-One):**
+> Azure üzerinde hem Web API'yi hem veritabanını aynı veri merkezinde **sıfır maliyetle ($0)** çalıştırmak mümkündür:
+> - **Backend API:** Azure App Service (**F1 Free Tier** — 1 GB RAM, 60 CPU dk/gün, otomatik HTTPS).
+> - **Veritabanı:** Azure SQL Database (**Free Offer** — Her ay 100.000 vCore-saniye, 32 GB depolama).
+> - **Avantaj:** Her iki servis de aynı Azure bölgesinde (örn. `West Europe / Batı Avrupa`) konumlandırıldığında harici ağ gecikmesi (latency) oluşmaz, bağlantı iç ağ hızında çalışır ve güvenlik duvarı ayarları pürüzsüz entegre olur.
+
+### User Story 11.1 — Canlı Öncesi Kod İyileştirmeleri & DevOps
+- [ ] T11.1.1 — **`/test-signalr` Endpoint'inin Kısıtlanması:** `Program.cs` içindeki test HTML sayfasının yalnızca `app.Environment.IsDevelopment()` ortamında açılması; canlı ortamda dışarıya kapatılması
+- [ ] T11.1.2 — **Ters Proxy (Reverse Proxy) Desteği:** Nginx, Cloudflare, Traefik veya Cloud Load Balancer arkasında istemci IP ve HTTPS protokolünün doğru algılanabilmesi için `app.UseForwardedHeaders()` middleware entegrasyonu
+- [ ] T11.1.3 — **Otomatik Veritabanı Migration:** Canlı ortamda container başlatıldığında veritabanı şemasının otomatik güncellenmesi (`context.Database.MigrateAsync()`)
+- [ ] T11.1.4 — **Multi-stage Dockerfile:** .NET 10 Web API projesini derleyip optimize production image'ı üreten Dockerfile hazırlanması
+- [ ] T11.1.5 — **Production Environment Variables Şablonu:** Canlıda kullanılacak DB connection string, güçlü JWT Key, SMTP ve CORS domain ayarlarını içeren `.env.production.example` şablonunun oluşturulması
 
 ---
 

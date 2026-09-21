@@ -14,6 +14,8 @@ public class TodoItemResponse
     public Guid? CompletedByUserId { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime CreatedAt { get; set; }
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
 
     // İlişkili alt görevler, etiketler ve paylaşılan kullanıcılar
     public List<SubTaskResponse> SubTasks { get; set; } = new();

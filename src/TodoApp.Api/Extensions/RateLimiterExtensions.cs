@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
@@ -38,6 +40,39 @@ public static class RateLimiterExtensions
                     "application/problem+json",
                     cancellationToken: token);
             };
+
+            // T10.2.6: Global Authenticated Rate Limiting
+            // Giriş yapmış kullanıcılar için:
+            // - Yazma (POST, PUT, PATCH, DELETE): 30 istek/dk
+            // - Okuma (GET, HEAD, OPTIONS): 60 istek/dk
+            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+            {
+                var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? httpContext.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return RateLimitPartition.GetNoLimiter("Anonymous");
+                }
+
+                var method = httpContext.Request.Method;
+                var isWrite = HttpMethods.IsPost(method) ||
+                              HttpMethods.IsPut(method) ||
+                              HttpMethods.IsPatch(method) ||
+                              HttpMethods.IsDelete(method);
+
+                var partitionKey = $"{userId}_{(isWrite ? "write" : "read")}";
+                var limit = isWrite ? 30 : 60;
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey,
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = limit,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    });
+            });
 
             // Politika Tanımları: Tekrarlayan partition kodları AddIpPolicy ile tek satıra indirildi
             options.AddIpPolicy("auth-login", permitLimit: 5);

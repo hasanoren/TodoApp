@@ -40,8 +40,7 @@ public class SubTaskServiceTests
 
         var request = new CreateSubTaskRequest { Title = "Veritabanı şemasını çiz" };
 
-        var subTasksList = new List<SubTask>();
-        _mockSubTaskRepo.Setup(r => r.GetByTaskIdAsync(parentTask.Id)).ReturnsAsync(subTasksList);
+        _mockSubTaskRepo.Setup(r => r.CountByTaskIdAsync(parentTask.Id)).ReturnsAsync(0);
 
         // ACT
         var result = await _service.CreateAsync(_ownerId, parentTask.Id, request);
@@ -68,8 +67,7 @@ public class SubTaskServiceTests
 
         var request = new CreateSubTaskRequest { Title = "Paylaşılan kullanıcının eklediği alt görev" };
 
-        var subTasksList = new List<SubTask>();
-        _mockSubTaskRepo.Setup(r => r.GetByTaskIdAsync(parentTask.Id)).ReturnsAsync(subTasksList);
+        _mockSubTaskRepo.Setup(r => r.CountByTaskIdAsync(parentTask.Id)).ReturnsAsync(0);
 
         // ACT
         var result = await _service.CreateAsync(_sharedUserId, parentTask.Id, request);
@@ -78,6 +76,27 @@ public class SubTaskServiceTests
         Assert.Equal("Paylaşılan kullanıcının eklediği alt görev", result.Title);
         _mockSubTaskRepo.Verify(r => r.AddAsync(It.IsAny<SubTask>()), Times.Once);
         _mockSubTaskRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenLimitReached_ThrowsValidationException()
+    {
+        // ARRANGE
+        var parentTask = CreateParentTask(_ownerId, isDeleted: false);
+
+        _mockTodoItemRepo
+            .Setup(r => r.GetByIdAsync(parentTask.Id))
+            .ReturnsAsync(parentTask);
+
+        var request = new CreateSubTaskRequest { Title = "51. alt görev" };
+
+        _mockSubTaskRepo.Setup(r => r.CountByTaskIdAsync(parentTask.Id)).ReturnsAsync(50);
+
+        // ACT & ASSERT
+        var ex = await Assert.ThrowsAsync<ValidationException>(
+            () => _service.CreateAsync(_ownerId, parentTask.Id, request));
+
+        Assert.Equal("Bir göreve en fazla 50 adet alt görev eklenebilir.", ex.Message);
     }
 
     [Fact]

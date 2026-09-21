@@ -195,11 +195,12 @@ public class TodoItemService : ITodoItemService
         todoItem.DeletedByUserId = null;
         todoItem.DeletedAt = null;
 
-        // Senaryo B Koruması: Eğer görev bir listeye aitse ama o liste silinmişse, görevi ana havuza (Inbox) düşür.
-        if (todoItem.TodoListId.HasValue && todoItem.TodoList != null && todoItem.TodoList.IsDeleted)
+        // Senaryo B Koruması: Eğer görev bir listeye aitse ama o liste silinmişse (veya bulunamıyorsa), görevi ana havuza (Inbox) düşür.
+        if (todoItem.TodoListId.HasValue && (todoItem.TodoList == null || todoItem.TodoList.IsDeleted))
         {
+            var originalListId = todoItem.TodoListId;
             todoItem.TodoListId = null;
-            _logger.LogWarning("Görev geri yüklendi ancak ait olduğu liste (ListId: {ListId}) silinmiş olduğu için görev ana havuza taşındı.", todoItem.TodoListId);
+            _logger.LogWarning("Görev geri yüklendi ancak ait olduğu liste (ListId: {ListId}) silinmiş olduğu için görev ana havuza (Inbox) taşındı.", originalListId);
         }
 
         await _todoItemRepository.SaveChangesAsync();
@@ -238,6 +239,8 @@ public class TodoItemService : ITodoItemService
             CompletedByUserId = todoItem.CompletedByUserId,
             CompletedAt = todoItem.CompletedAt,
             CreatedAt = todoItem.CreatedAt,
+            IsDeleted = todoItem.IsDeleted,
+            DeletedAt = todoItem.DeletedAt,
             SubTasks = todoItem.SubTasks?.Select(st => new SubTaskResponse
             {
                 Id = st.Id,

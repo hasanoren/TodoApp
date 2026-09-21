@@ -22,10 +22,13 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequest request)
     {
-
         var result = await _authService.RegisterAsync(request);
+        if (!string.IsNullOrEmpty(result.RefreshToken))
+        {
+            SetRefreshTokenCookie(result.RefreshToken);
+            result.RefreshToken = string.Empty; // T10.2.4: XSS koruması için body'den temizle
+        }
         return Ok(result);
-
     }
 
     [EnableRateLimiting("auth-login")]
@@ -33,20 +36,57 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login(LoginRequest request)
     {
         var result = await _authService.LoginAsync(request);
+        if (!string.IsNullOrEmpty(result.RefreshToken))
+        {
+            SetRefreshTokenCookie(result.RefreshToken);
+            result.RefreshToken = string.Empty; // T10.2.4: XSS koruması için body'den temizle
+        }
         return Ok(result);
     }
 
     [HttpPost("refresh")]
-    public async Task<IActionResult> Refresh(RefreshTokenRequest request)
+    public async Task<IActionResult> Refresh([FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] RefreshTokenRequest? request = null)
     {
-        var result = await _authService.RefreshTokenAsync(request);
+        var refreshToken = request?.RefreshToken;
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            Request.Cookies.TryGetValue("refreshToken", out refreshToken);
+        }
+
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Geçersiz İstek",
+                Detail = "Refresh token cookie veya istek gövdesinde bulunamadı.",
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        var result = await _authService.RefreshTokenAsync(new RefreshTokenRequest { RefreshToken = refreshToken });
+        if (!string.IsNullOrEmpty(result.RefreshToken))
+        {
+            SetRefreshTokenCookie(result.RefreshToken);
+            result.RefreshToken = string.Empty; // T10.2.4: XSS koruması için body'den temizle
+        }
         return Ok(result);
     }
 
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout(RefreshTokenRequest request)
+    public async Task<IActionResult> Logout([FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] RefreshTokenRequest? request = null)
     {
-        await _authService.LogoutAsync(request);
+        var refreshToken = request?.RefreshToken;
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            Request.Cookies.TryGetValue("refreshToken", out refreshToken);
+        }
+
+        if (!string.IsNullOrWhiteSpace(refreshToken))
+        {
+            await _authService.LogoutAsync(new RefreshTokenRequest { RefreshToken = refreshToken });
+        }
+
+        RemoveRefreshTokenCookie();
         return NoContent(); // 204 — başarılı ama dönecek içerik yok
     }
 
@@ -58,57 +98,13 @@ public class AuthController : ControllerBase
         return Ok(new { message = "Eğer bu e-posta adresi kayıtlıysa, şifre sıfırlama bağlantısı gönderildi." });
     }
 
-    [HttpGet("reset-password")]
-    public IActionResult ResetPasswordPage([FromQuery] string token)
-    {
-        var encodedToken = System.Net.WebUtility.HtmlEncode(token ?? string.Empty);
-
-        var html = $"""
-        <!DOCTYPE html>
-        <html lang="tr">
-        <head>
-            <meta charset="UTF-8">
-            <title>Şifre Sıfırla</title>
-        </head>
-        <body>
-            <h2>Şifre Sıfırla</h2>
-
-            <form method="post"
-                  action="/api/Auth/reset-password">
-
-                <input type="hidden"
-                       name="Token"
-                       value="{encodedToken}" />
-
-                <label>Yeni Şifre:</label>
-                <br />
-
-                <input type="password"
-                       name="NewPassword"
-                       required />
-
-                <br /><br />
-
-                <button type="submit">
-                    Şifreyi Değiştir
-                </button>
-            </form>
-        </body>
-        </html>
-        """;
-
-        return Content(html, "text/html");
-    }
-
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword(
-        [FromForm] ResetPasswordRequest request)
+        [FromBody] ResetPasswordRequest request)
     {
         await _authService.ResetPasswordAsync(request);
 
-        return Content(
-            "<h2>Şifreniz başarıyla değiştirildi.</h2>",
-            "text/html");
+        return Ok(new { message = "Şifreniz başarıyla değiştirildi." });
     }
 
     [Authorize]
@@ -131,6 +127,11 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> LoginWithTwoFactor([FromBody] TwoFactorLoginRequest request)
     {
         var response = await _authService.LoginWithTwoFactorAsync(request);
+        if (!string.IsNullOrEmpty(response.RefreshToken))
+        {
+            SetRefreshTokenCookie(response.RefreshToken);
+            response.RefreshToken = string.Empty; // T10.2.4: XSS koruması için body'den temizle
+        }
         return Ok(response);
     }
 
@@ -159,6 +160,30 @@ public class AuthController : ControllerBase
         var userId = GetUserId();
         await _authService.DisableTwoFactorAsync(userId, request);
         return Ok(new { message = "İki adımlı doğrulama devre dışı bırakıldı." });
+    }
+
+    private void SetRefreshTokenCookie(string refreshToken)
+    {
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Expires = DateTime.UtcNow.AddDays(7),
+            Path = "/"
+        };
+        Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
+    }
+
+    private void RemoveRefreshTokenCookie()
+    {
+        Response.Cookies.Delete("refreshToken", new CookieOptions
+        {
+            Path = "/",
+            Secure = true,
+            HttpOnly = true,
+            SameSite = SameSiteMode.Strict
+        });
     }
 
     private Guid GetUserId()

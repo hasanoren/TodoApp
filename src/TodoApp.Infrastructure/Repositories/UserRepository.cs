@@ -30,20 +30,35 @@ public class UserRepository : IUserRepository
         await _context.SaveChangesAsync();
     }
 
-    public void Delete(User user)
+    public async Task DeleteAsync(User user)
     {
-        // SQL Server multiple cascade paths nedeniyle NoAction olan ilişkileri manuel temizliyoruz
-        _context.TodoItems.Where(t => t.CompletedByUserId == user.Id)
-            .ExecuteUpdate(s => s.SetProperty(t => t.CompletedByUserId, (Guid?)null));
+        // T10.3.1: Tüm silme adımları tek bir veritabanı transaction'ında atomik yürütülür
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            // SQL Server multiple cascade paths nedeniyle NoAction olan ilişkileri manuel temizliyoruz
+            await _context.TodoItems.Where(t => t.CompletedByUserId == user.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(t => t.CompletedByUserId, (Guid?)null));
 
-        _context.TodoItems.Where(t => t.DeletedByUserId == user.Id)
-            .ExecuteUpdate(s => s.SetProperty(t => t.DeletedByUserId, (Guid?)null));
+            await _context.TodoItems.Where(t => t.DeletedByUserId == user.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(t => t.DeletedByUserId, (Guid?)null));
 
-        _context.TaskShares.Where(ts => ts.UserId == user.Id).ExecuteDelete();
+            await _context.TaskShares.Where(ts => ts.UserId == user.Id).ExecuteDeleteAsync();
 
-        _context.OwnershipTransferRequests.Where(otr => otr.FromUserId == user.Id || otr.ToUserId == user.Id).ExecuteDelete();
+            await _context.OwnershipTransferRequests.Where(otr => otr.FromUserId == user.Id || otr.ToUserId == user.Id).ExecuteDeleteAsync();
 
-        _context.Users.Remove(user);
+            await _context.TodoItemActivities.Where(a => a.UserId == user.Id).ExecuteDeleteAsync();
+
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<User?> GetByIdAsync(Guid id)

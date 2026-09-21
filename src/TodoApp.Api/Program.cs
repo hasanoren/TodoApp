@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using Microsoft.EntityFrameworkCore;
 using TodoApp.Infrastructure.Data;
 
@@ -158,6 +159,32 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     context.Token = accessToken;
                 }
                 return Task.CompletedTask;
+            },
+            OnTokenValidated = async context =>
+            {
+                // T10.2.2: JWT Token İptali / Güvenlik Damgası (SecurityStamp) Doğrulaması
+                var userRepo = context.HttpContext.RequestServices.GetRequiredService<TodoApp.Application.Interfaces.IUserRepository>();
+                var userIdClaim = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? context.Principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+                if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                {
+                    context.Fail("Geçersiz token bilgisi.");
+                    return;
+                }
+
+                var user = await userRepo.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    context.Fail("Kullanıcı bulunamadı.");
+                    return;
+                }
+
+                var tokenStamp = context.Principal?.FindFirst("security_stamp")?.Value;
+                if (string.IsNullOrEmpty(tokenStamp) || !Guid.TryParse(tokenStamp, out var stampGuid) || user.SecurityStamp != stampGuid)
+                {
+                    context.Fail("Oturum süresi doldu veya güvenlik bilgileri değişti.");
+                }
             }
         };
     });
@@ -180,14 +207,15 @@ app.UseSerilogRequestLogging();
 
 app.UseHttpsRedirection();
 app.UseCors(corsPolicyName);
-app.UseRateLimiter();
 
-// ---- YENİ: Authentication, Authorization'dan ÖNCE gelmeli ----
+// T10.2.6: Rate limiter kullanıcının kimliğine erişebilmesi için Authentication önce çalıştırılmalıdır
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapAppHealthChecks();
 app.MapControllers();
 app.MapHub<TodoApp.Api.Hubs.TodoHub>("/hubs/todo");
+app.MapGet("/test-signalr", () => Results.Content(TodoApp.Api.Extensions.SignalRTestPage.Html, "text/html; charset=utf-8"));
 
 app.Run();

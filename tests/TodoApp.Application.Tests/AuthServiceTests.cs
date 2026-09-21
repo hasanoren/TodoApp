@@ -827,4 +827,286 @@ public class AuthServiceTests
         Assert.All(user.RefreshTokens, rt => Assert.True(rt.IsRevoked));
         mockUserRepository.Verify(repo => repo.SaveChangesAsync(), Times.Once);
     }
+
+    [Fact]
+    public async Task LoginAsync_When5FailedAttempts_LocksAccountFor15Minutes()
+    {
+        // ARRANGE
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "test@example.com",
+            PasswordHash = "correct-hash",
+            FailedLoginAttempts = 4
+        };
+
+        var mockUserRepo = new Mock<IUserRepository>();
+        mockUserRepo.Setup(r => r.GetByEmailAsync("test@example.com")).ReturnsAsync(user);
+
+        var mockPasswordHasher = new Mock<IPasswordHasher>();
+        mockPasswordHasher.Setup(h => h.VerifyPassword("WrongPassword", "correct-hash")).Returns(false);
+
+        var authService = new AuthService(
+            mockUserRepo.Object,
+            new Mock<IRefreshTokenRepository>().Object,
+            new Mock<IJwtTokenGenerator>().Object,
+            new Mock<IEmailSender>().Object,
+            new Mock<IPasswordResetTokenRepository>().Object,
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
+
+        var request = new LoginRequest { Email = "test@example.com", Password = "WrongPassword" };
+
+        // ACT & ASSERT
+        await Assert.ThrowsAsync<ValidationException>(() => authService.LoginAsync(request));
+
+        Assert.Equal(5, user.FailedLoginAttempts);
+        Assert.NotNull(user.LockoutEnd);
+        Assert.True(user.LockoutEnd > DateTime.UtcNow.AddMinutes(14));
+        mockUserRepo.Verify(r => r.SaveChangesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenAccountIsLockedOut_ThrowsValidationExceptionWithoutCheckingPassword()
+    {
+        // ARRANGE
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "locked@example.com",
+            PasswordHash = "correct-hash",
+            LockoutEnd = DateTime.UtcNow.AddMinutes(10)
+        };
+
+        var mockUserRepo = new Mock<IUserRepository>();
+        mockUserRepo.Setup(r => r.GetByEmailAsync("locked@example.com")).ReturnsAsync(user);
+
+        var mockPasswordHasher = new Mock<IPasswordHasher>();
+
+        var authService = new AuthService(
+            mockUserRepo.Object,
+            new Mock<IRefreshTokenRepository>().Object,
+            new Mock<IJwtTokenGenerator>().Object,
+            new Mock<IEmailSender>().Object,
+            new Mock<IPasswordResetTokenRepository>().Object,
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
+
+        var request = new LoginRequest { Email = "locked@example.com", Password = "AnyPassword" };
+
+        // ACT & ASSERT
+        var ex = await Assert.ThrowsAsync<ValidationException>(() => authService.LoginAsync(request));
+        Assert.Contains("geçici olarak kilitlendi", ex.Message);
+        mockPasswordHasher.Verify(h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenSuccessful_ResetsFailedLoginAttemptsAndLockout()
+    {
+        // ARRANGE
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "test@example.com",
+            PasswordHash = "correct-hash",
+            FailedLoginAttempts = 3,
+            LockoutEnd = null
+        };
+
+        var mockUserRepo = new Mock<IUserRepository>();
+        mockUserRepo.Setup(r => r.GetByEmailAsync("test@example.com")).ReturnsAsync(user);
+
+        var mockPasswordHasher = new Mock<IPasswordHasher>();
+        mockPasswordHasher.Setup(h => h.VerifyPassword("CorrectPassword", "correct-hash")).Returns(true);
+
+        var mockJwtGen = new Mock<IJwtTokenGenerator>();
+        mockJwtGen.Setup(g => g.GenerateToken(user)).Returns("jwt-token");
+        mockJwtGen.Setup(g => g.GenerateRefreshToken()).Returns(("refresh-token", DateTime.UtcNow.AddDays(7)));
+
+        var authService = new AuthService(
+            mockUserRepo.Object,
+            new Mock<IRefreshTokenRepository>().Object,
+            mockJwtGen.Object,
+            new Mock<IEmailSender>().Object,
+            new Mock<IPasswordResetTokenRepository>().Object,
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
+
+        var request = new LoginRequest { Email = "test@example.com", Password = "CorrectPassword" };
+
+        // ACT
+        var response = await authService.LoginAsync(request);
+
+        // ASSERT
+        Assert.NotNull(response);
+        Assert.Equal(0, user.FailedLoginAttempts);
+        Assert.Null(user.LockoutEnd);
+        mockUserRepo.Verify(r => r.SaveChangesAsync(), Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_RegeneratesSecurityStamp()
+    {
+        // ARRANGE
+        var initialStamp = Guid.NewGuid();
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "test@example.com",
+            PasswordHash = "old-hash",
+            SecurityStamp = initialStamp
+        };
+
+        var mockUserRepo = new Mock<IUserRepository>();
+        mockUserRepo.Setup(r => r.GetByIdAsync(user.Id)).ReturnsAsync(user);
+
+        var mockPasswordHasher = new Mock<IPasswordHasher>();
+        mockPasswordHasher.Setup(h => h.VerifyPassword("OldPass!", "old-hash")).Returns(true);
+        mockPasswordHasher.Setup(h => h.HashPassword("NewPass123!")).Returns("new-hash");
+
+        var authService = new AuthService(
+            mockUserRepo.Object,
+            new Mock<IRefreshTokenRepository>().Object,
+            new Mock<IJwtTokenGenerator>().Object,
+            new Mock<IEmailSender>().Object,
+            new Mock<IPasswordResetTokenRepository>().Object,
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
+
+        var request = new ChangePasswordRequest { CurrentPassword = "OldPass!", NewPassword = "NewPass123!" };
+
+        // ACT
+        await authService.ChangePasswordAsync(user.Id, request);
+
+        // ASSERT
+        Assert.NotEqual(initialStamp, user.SecurityStamp);
+    }
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WhenEmailSenderThrowsException_CatchesAndDoesNotThrow()
+    {
+        // ARRANGE
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "test@example.com"
+        };
+
+        var mockUserRepo = new Mock<IUserRepository>();
+        mockUserRepo.Setup(r => r.GetByEmailAsync("test@example.com")).ReturnsAsync(user);
+
+        var mockEmailSender = new Mock<IEmailSender>();
+        mockEmailSender
+            .Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ThrowsAsync(new System.Net.Mail.SmtpException("SMTP down"));
+
+        var mockJwtGen = new Mock<IJwtTokenGenerator>();
+        mockJwtGen.Setup(g => g.GeneratePasswordResetToken()).Returns(("reset-token", DateTime.UtcNow.AddHours(1)));
+
+        var authService = new AuthService(
+            mockUserRepo.Object,
+            new Mock<IRefreshTokenRepository>().Object,
+            mockJwtGen.Object,
+            mockEmailSender.Object,
+            new Mock<IPasswordResetTokenRepository>().Object,
+            new Mock<IPasswordHasher>().Object,
+            DefaultPasswordResetOptions);
+
+        var request = new ForgotPasswordRequest { Email = "test@example.com" };
+
+        // ACT & ASSERT: Must not throw
+        var exception = await Record.ExceptionAsync(() => authService.ForgotPasswordAsync(request));
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public async Task DeleteAccountAsync_WhenPasswordIsIncorrect_ThrowsValidationException()
+    {
+        // ARRANGE
+        var userId = Guid.NewGuid();
+        var user = new User
+        {
+            Id = userId,
+            Email = "delete@example.com",
+            PasswordHash = "correct-hash"
+        };
+
+        var mockUserRepo = new Mock<IUserRepository>();
+        mockUserRepo.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(user);
+
+        var mockPasswordHasher = new Mock<IPasswordHasher>();
+        mockPasswordHasher.Setup(h => h.VerifyPassword("WrongPassword", "correct-hash")).Returns(false);
+
+        var authService = new AuthService(
+            mockUserRepo.Object,
+            new Mock<IRefreshTokenRepository>().Object,
+            new Mock<IJwtTokenGenerator>().Object,
+            new Mock<IEmailSender>().Object,
+            new Mock<IPasswordResetTokenRepository>().Object,
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
+
+        // ACT & ASSERT
+        var ex = await Assert.ThrowsAsync<ValidationException>(
+            () => authService.DeleteAccountAsync(userId, "WrongPassword"));
+
+        Assert.Equal("Şifre hatalı.", ex.Message);
+        mockUserRepo.Verify(r => r.DeleteAsync(It.IsAny<User>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAccountAsync_WhenPasswordIsCorrect_DeletesUser()
+    {
+        // ARRANGE
+        var userId = Guid.NewGuid();
+        var user = new User
+        {
+            Id = userId,
+            Email = "delete@example.com",
+            PasswordHash = "correct-hash"
+        };
+
+        var mockUserRepo = new Mock<IUserRepository>();
+        mockUserRepo.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(user);
+
+        var mockPasswordHasher = new Mock<IPasswordHasher>();
+        mockPasswordHasher.Setup(h => h.VerifyPassword("CorrectPassword", "correct-hash")).Returns(true);
+
+        var authService = new AuthService(
+            mockUserRepo.Object,
+            new Mock<IRefreshTokenRepository>().Object,
+            new Mock<IJwtTokenGenerator>().Object,
+            new Mock<IEmailSender>().Object,
+            new Mock<IPasswordResetTokenRepository>().Object,
+            mockPasswordHasher.Object,
+            DefaultPasswordResetOptions);
+
+        // ACT
+        await authService.DeleteAccountAsync(userId, "CorrectPassword");
+
+        // ASSERT
+        mockUserRepo.Verify(r => r.DeleteAsync(user), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAccountAsync_WhenUserNotFound_ThrowsNotFoundException()
+    {
+        // ARRANGE
+        var userId = Guid.NewGuid();
+        var mockUserRepo = new Mock<IUserRepository>();
+        mockUserRepo.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync((User?)null);
+
+        var authService = new AuthService(
+            mockUserRepo.Object,
+            new Mock<IRefreshTokenRepository>().Object,
+            new Mock<IJwtTokenGenerator>().Object,
+            new Mock<IEmailSender>().Object,
+            new Mock<IPasswordResetTokenRepository>().Object,
+            new Mock<IPasswordHasher>().Object,
+            DefaultPasswordResetOptions);
+
+        // ACT & ASSERT
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => authService.DeleteAccountAsync(userId, "AnyPassword"));
+    }
 }

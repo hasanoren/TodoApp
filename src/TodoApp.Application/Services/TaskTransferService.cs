@@ -13,6 +13,7 @@ public class TaskTransferService : ITaskTransferService
     private readonly ITodoItemRepository _todoItemRepo;
     private readonly IUserRepository _userRepo;
     private readonly ITaskShareRepository _taskShareRepo;
+    private readonly ITodoItemActivityService? _activityService;
     private readonly ILogger<TaskTransferService> _logger;
 
     public TaskTransferService(
@@ -20,12 +21,14 @@ public class TaskTransferService : ITaskTransferService
         ITodoItemRepository todoItemRepo,
         IUserRepository userRepo,
         ITaskShareRepository taskShareRepo,
+        ITodoItemActivityService? activityService = null,
         ILogger<TaskTransferService>? logger = null)
     {
         _transferRequestRepo = transferRequestRepo;
         _todoItemRepo = todoItemRepo;
         _userRepo = userRepo;
         _taskShareRepo = taskShareRepo;
+        _activityService = activityService;
         _logger = logger ?? NullLogger<TaskTransferService>.Instance;
     }
 
@@ -82,6 +85,15 @@ public class TaskTransferService : ITaskTransferService
         await _transferRequestRepo.SaveChangesAsync();
 
         _logger.LogInformation("Görev devir talebi oluşturuldu. RequestId: {RequestId}, TaskId: {TaskId}, FromUserId: {FromUserId}, ToUserId: {ToUserId}", transferRequest.Id, taskId, currentOwnerId, targetUser.Id);
+
+        if (_activityService != null)
+        {
+            await _activityService.LogActivityAsync(
+                taskId,
+                currentOwnerId,
+                "Devir Talebi Oluşturuldu",
+                $"Görevin sahipliğinin {targetUser.Email} kullanıcısına devredilmesi için talep oluşturuldu.");
+        }
 
         var currentUser = await _userRepo.GetByIdAsync(currentOwnerId);
 
@@ -168,6 +180,16 @@ public class TaskTransferService : ITaskTransferService
         await _transferRequestRepo.SaveChangesAsync();
 
         _logger.LogInformation("Görev devir talebi kabul edildi. Sahiplik aktarıldı. RequestId: {RequestId}, TaskId: {TaskId}, NewOwnerId: {NewOwnerId}, PreviousOwnerId: {PreviousOwnerId}", requestId, task.Id, targetUserId, oldOwnerId);
+
+        if (_activityService != null)
+        {
+            var newOwner = await _userRepo.GetByIdAsync(targetUserId);
+            await _activityService.LogActivityAsync(
+                task.Id,
+                targetUserId,
+                "Sahiplik Devredildi",
+                $"Görevin yeni sahibi {newOwner?.Email ?? targetUserId.ToString()} oldu.");
+        }
     }
 
     public async Task RejectTransferRequestAsync(Guid targetUserId, Guid requestId)

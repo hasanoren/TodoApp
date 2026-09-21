@@ -11,13 +11,13 @@ namespace TodoApp.Api.BackgroundServices;
 public class TodoReminderService : BackgroundService
 {
     private readonly ILogger<TodoReminderService> _logger;
-    private readonly IServiceProvider _serviceProvider;
-    private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(1); // Geliştirme için 1 dakika (Canlıda 1 saat olabilir)
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(1);
 
-    public TodoReminderService(ILogger<TodoReminderService> logger, IServiceProvider serviceProvider)
+    public TodoReminderService(ILogger<TodoReminderService> logger, IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
-        _serviceProvider = serviceProvider;
+        _scopeFactory = scopeFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -29,14 +29,25 @@ public class TodoReminderService : BackgroundService
             try
             {
                 await CheckAndSendRemindersAsync(stoppingToken);
+                await Task.Delay(_checkInterval, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Uygulama kapanırken fırlatılan normal iptal sinyali
+                break;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Hatırlatıcı servisi çalışırken bir hata oluştu.");
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
             }
-
-            // Bekleme süresi (1 dakika)
-            await Task.Delay(_checkInterval, stoppingToken);
         }
 
         _logger.LogInformation("Hatırlatıcı Servisi durduruldu.");
@@ -44,49 +55,70 @@ public class TodoReminderService : BackgroundService
 
     private async Task CheckAndSendRemindersAsync(CancellationToken cancellationToken)
     {
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
 
         var targetDate = DateTime.UtcNow.AddHours(24);
 
-        // Şartlar: Silinmemiş, Tamamlanmamış, Son 24 Saati kalmış ve henüz hatırlatıcı gönderilmemiş görevler
-        var approachingTasks = await context.TodoItems
-            .Include(t => t.Owner)
-            .Where(t => !t.IsDeleted &&
-                        t.Status != TodoApp.Domain.Entities.TodoItemStatus.Completed &&
-                        t.DueDate.HasValue &&
-                        t.DueDate.Value <= targetDate &&
-                        t.ReminderSentAt == null)
-            .ToListAsync(cancellationToken);
+        const int batchSize = 100;
+        int totalProcessed = 0;
 
-        if (!approachingTasks.Any())
+        while (!cancellationToken.IsCancellationRequested)
         {
-            return; // İşlem yapılacak görev yok
+            // Şartlar: Silinmemiş, Tamamlanmamış, Son 24 Saati kalmış ve henüz hatırlatıcı gönderilmemiş görevler
+            // Bellek şişmesini önlemek için batchSize (100'erli) gruplar halinde işlenir
+            var batch = await context.TodoItems
+                .Include(t => t.Owner)
+                .Where(t => !t.IsDeleted &&
+                            t.Status != TodoApp.Domain.Entities.TodoItemStatus.Completed &&
+                            t.DueDate.HasValue &&
+                            t.DueDate.Value <= targetDate &&
+                            t.ReminderSentAt == null)
+                .Take(batchSize)
+                .ToListAsync(cancellationToken);
+
+            if (batch.Count == 0)
+            {
+                break; // İşlenecek başka görev kalmadı
+            }
+
+            foreach (var task in batch)
+            {
+                if (cancellationToken.IsCancellationRequested) break;
+
+                try
+                {
+                    var htmlBody = $"""
+                    <p>Merhaba {task.Owner.Email},</p>
+                    <p><strong>'{task.Title}'</strong> adlı görevinizin teslim tarihi yaklaşmaktadır.</p>
+                    <p>Son Tarih: {task.DueDate:dd.MM.yyyy HH:mm}</p>
+                    <p>Lütfen görevinizi zamanında tamamlamayı unutmayın.</p>
+                    """;
+
+                    await emailSender.SendEmailAsync(
+                        task.Owner.Email,
+                        $"Görev Hatırlatması: {task.Title}",
+                        htmlBody);
+
+                    task.ReminderSentAt = DateTime.UtcNow;
+                    totalProcessed++;
+                    _logger.LogInformation("Görev '{Title}' ({Id}) için {Email} adresine hatırlatıcı gönderildi.", task.Title, task.Id, task.Owner.Email);
+                }
+                catch (Exception ex)
+                {
+                    // Tek bir e-posta gönderim hatası diğer görevlerin hatırlatıcılarını veya batch'i durdurmasın
+                    _logger.LogError(ex, "Görev '{Title}' ({Id}) için hatırlatıcı e-postası gönderilemedi.", task.Title, task.Id);
+                }
+            }
+
+            // Her 100'lük batch tamamlandığında durumu veritabanına yansıt
+            await context.SaveChangesAsync(cancellationToken);
         }
 
-        _logger.LogInformation("{Count} adet görev için hatırlatıcı gönderilecek.", approachingTasks.Count);
-
-        foreach (var task in approachingTasks)
+        if (totalProcessed > 0)
         {
-            if (cancellationToken.IsCancellationRequested) break;
-
-            var htmlBody = $"""
-            <p>Merhaba {task.Owner.Email},</p>
-            <p><strong>'{task.Title}'</strong> adlı görevinizin teslim tarihi yaklaşmaktadır.</p>
-            <p>Son Tarih: {task.DueDate:dd.MM.yyyy HH:mm}</p>
-            <p>Lütfen görevinizi zamanında tamamlamayı unutmayın.</p>
-            """;
-
-            await emailSender.SendEmailAsync(
-                task.Owner.Email,
-                $"Görev Hatırlatması: {task.Title}",
-                htmlBody);
-
-            task.ReminderSentAt = DateTime.UtcNow;
-            _logger.LogInformation("Görev '{Title}' ({Id}) için {Email} adresine hatırlatıcı gönderildi.", task.Title, task.Id, task.Owner.Email);
+            _logger.LogInformation("Toplam {Total} adet görev için hatırlatıcı başarıyla gönderildi.", totalProcessed);
         }
-
-        await context.SaveChangesAsync(cancellationToken);
     }
 }
