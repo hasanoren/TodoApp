@@ -313,11 +313,11 @@ Her task'ta ilgili BR-XXX numarası belirtilmiştir. Bir task'ı uygularken ilgi
 > - **Avantaj:** Her iki servis de aynı Azure bölgesinde (örn. `West Europe / Batı Avrupa`) konumlandırıldığında harici ağ gecikmesi (latency) oluşmaz, bağlantı iç ağ hızında çalışır ve güvenlik duvarı ayarları pürüzsüz entegre olur.
 
 ### User Story 11.1 — Canlı Öncesi Kod İyileştirmeleri & DevOps
-- [ ] T11.1.1 — **`/test-signalr` Endpoint'inin Kısıtlanması:** `Program.cs` içindeki test HTML sayfasının yalnızca `app.Environment.IsDevelopment()` ortamında açılması; canlı ortamda dışarıya kapatılması
-- [ ] T11.1.2 — **Ters Proxy (Reverse Proxy) Desteği:** Nginx, Cloudflare, Traefik veya Cloud Load Balancer arkasında istemci IP ve HTTPS protokolünün doğru algılanabilmesi için `app.UseForwardedHeaders()` middleware entegrasyonu
-- [ ] T11.1.3 — **Otomatik Veritabanı Migration:** Canlı ortamda container başlatıldığında veritabanı şemasının otomatik güncellenmesi (`context.Database.MigrateAsync()`)
-- [ ] T11.1.4 — **Multi-stage Dockerfile:** .NET 10 Web API projesini derleyip optimize production image'ı üreten Dockerfile hazırlanması
-- [ ] T11.1.5 — **Production Environment Variables Şablonu:** Canlıda kullanılacak DB connection string, güçlü JWT Key, SMTP ve CORS domain ayarlarını içeren `.env.production.example` şablonunun oluşturulması
+- [x] T11.1.1 — **`/test-signalr` Endpoint'inin Kısıtlanması:** `Program.cs` içindeki test HTML sayfasının yalnızca `app.Environment.IsDevelopment()` ortamında açılması; canlı ortamda dışarıya kapatılması
+- [x] T11.1.2 — **Ters Proxy (Reverse Proxy) Desteği:** Nginx, Cloudflare, Traefik veya Cloud Load Balancer arkasında istemci IP ve HTTPS protokolünün doğru algılanabilmesi için `app.UseForwardedHeaders()` middleware entegrasyonu
+- [x] T11.1.3 — **Otomatik Veritabanı Migration:** Canlı ortamda container başlatıldığında veritabanı şemasının otomatik güncellenmesi (`context.Database.MigrateAsync()`)
+- [x] T11.1.4 — **Multi-stage Dockerfile:** .NET 10 Web API projesini derleyip optimize production image'ı üreten Dockerfile hazırlanması
+- [x] T11.1.5 — **Production Environment Variables Şablonu:** Canlıda kullanılacak DB connection string, güçlü JWT Key, SMTP ve CORS domain ayarlarını içeren `.env.production.example` şablonunun oluşturulması
 
 ---
 

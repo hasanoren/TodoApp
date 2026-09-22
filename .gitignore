@@ -23,6 +23,9 @@ appsettings.json
 appsettings.*.json
 !appsettings.Example.json
 *.env
+.env
+.env.*
+!.env*.example
 
 ## Diğer
 *.log

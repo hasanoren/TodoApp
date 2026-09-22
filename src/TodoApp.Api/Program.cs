@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using TodoApp.Infrastructure.Data;
 
@@ -193,13 +194,25 @@ builder.Services.AddAuthorization();
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppHealthChecks();
 
+// T11.1.2: Ters Proxy (Nginx, Cloudflare, Traefik, AWS ALB) arkasında gerçek IP ve HTTPS protokolünü almak için
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 var app = builder.Build();
+
+// Ters proxy başlıkları tüm middleware'lerden önce işletilmelidir
+app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();      // ---- YENİ: /swagger/v1/swagger.json dokümanını sunar ----
-    app.UseSwaggerUI();    // ---- YENİ: /swagger adresinde görsel arayüzü açar ----
-
+    app.UseSwagger();
+    app.UseSwaggerUI();
+    // T11.1.1: Test arayüzü yalnızca yerel geliştirme (Development) ortamında açık olmalı
+    app.MapGet("/test-signalr", () => Results.Content(TodoApp.Api.Extensions.SignalRTestPage.Html, "text/html; charset=utf-8"));
 }
 app.UseMiddleware<ExceptionHandlingMiddleware>();   // ---- YENİ: en başta olmalı ----
 app.UseMiddleware<SecurityHeadersMiddleware>();
@@ -216,6 +229,27 @@ app.UseAuthorization();
 app.MapAppHealthChecks();
 app.MapControllers();
 app.MapHub<TodoApp.Api.Hubs.TodoHub>("/hubs/todo");
-app.MapGet("/test-signalr", () => Results.Content(TodoApp.Api.Extensions.SignalRTestPage.Html, "text/html; charset=utf-8"));
+
+// T11.1.3: Otomatik Veritabanı Migration (Production & Docker ortamlarında şemanın otomatik güncellenmesi)
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        var dbContext = services.GetRequiredService<ApplicationDbContext>();
+        if (dbContext.Database.IsSqlServer())
+        {
+            logger.LogInformation("Veritabanı migration kontrolü yapılıyor...");
+            await dbContext.Database.MigrateAsync();
+            logger.LogInformation("Veritabanı migration işlemi başarıyla tamamlandı.");
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Veritabanı migration işlemi sırasında bir hata oluştu.");
+        throw;
+    }
+}
 
 app.Run();
