@@ -243,25 +243,31 @@ app.MapAppHealthChecks();
 app.MapControllers();
 app.MapHub<TodoApp.Api.Hubs.TodoHub>("/hubs/todo");
 
-// T11.1.3: Otomatik Veritabanı Migration (Production & Docker ortamlarında şemanın otomatik güncellenmesi)
-using (var scope = app.Services.CreateScope())
+// T11.1.3: Otomatik Veritabanı Migration (Arka planda çalışarak web sunucusunun hemen ayağa kalkmasını sağlar)
+_ = Task.Run(async () =>
 {
-    var services = scope.ServiceProvider;
-    var logger = services.GetRequiredService<ILogger<Program>>();
     try
     {
+        using var scope = app.Services.CreateScope();
+        var services = scope.ServiceProvider;
+        var logger = services.GetRequiredService<ILogger<Program>>();
         var dbContext = services.GetRequiredService<ApplicationDbContext>();
         if (dbContext.Database.IsSqlServer())
         {
-            logger.LogInformation("Veritabanı migration kontrolü yapılıyor...");
+            logger.LogInformation("Veritabanı migration kontrolü başlatılıyor...");
             await dbContext.Database.MigrateAsync();
             logger.LogInformation("Veritabanı migration işlemi başarıyla tamamlandı.");
         }
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Veritabanı migration işlemi sırasında bir hata oluştu: {Message}", ex.Message);
+        try
+        {
+            var logger = app.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "Veritabanı migration işlemi sırasında hata oluştu: {Message}", ex.Message);
+        }
+        catch { }
     }
-}
+});
 
 app.Run();
