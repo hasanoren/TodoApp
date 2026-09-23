@@ -18,9 +18,9 @@ out/
 ## Rider
 .idea/
 
-## appsettings — hassas bilgi içerir (connection string, JWT key, SMTP şifresi)
-appsettings.json
+appsettings.Development.json
 appsettings.*.json
+!appsettings.json
 !appsettings.Example.json
 *.env
 .env

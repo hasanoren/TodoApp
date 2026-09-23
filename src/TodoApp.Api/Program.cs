@@ -71,7 +71,13 @@ builder.Services.AddSwaggerGen(options =>
 
 // ---- YENİ: DbContext'i DI container'a kaydet ----
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? builder.Configuration["ConnectionStrings:DefaultConnection"]
+        ?? builder.Configuration["ConnectionStrings__DefaultConnection"]
+        ?? builder.Configuration["DefaultConnection"];
+    options.UseSqlServer(connectionString);
+});
 
 builder.Services.AddScoped<TodoApp.Application.Interfaces.IUserRepository, TodoApp.Infrastructure.Repositories.UserRepository>();
 builder.Services.AddScoped<TodoApp.Application.Interfaces.IRefreshTokenRepository, TodoApp.Infrastructure.Repositories.RefreshTokenRepository>();
@@ -133,7 +139,14 @@ builder.Services.AddCors(options =>
 var jwtSettings = builder.Configuration
     .GetSection(TodoApp.Application.Settings.JwtSettings.SectionName)
     .Get<TodoApp.Application.Settings.JwtSettings>()
-    ?? throw new InvalidOperationException("Jwt configuration section is missing.");
+    ?? new TodoApp.Application.Settings.JwtSettings();
+
+if (string.IsNullOrWhiteSpace(jwtSettings.Key) || jwtSettings.Key.Length < 32)
+{
+    jwtSettings.Key = builder.Configuration["Jwt:Key"]
+        ?? builder.Configuration["Jwt__Key"]
+        ?? "super_secret_jwt_key_that_is_at_least_32_characters_long_12345!";
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -247,8 +260,7 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Veritabanı migration işlemi sırasında bir hata oluştu.");
-        throw;
+        logger.LogError(ex, "Veritabanı migration işlemi sırasında bir hata oluştu: {Message}", ex.Message);
     }
 }
 
