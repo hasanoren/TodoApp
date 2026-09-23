@@ -243,6 +243,27 @@ app.MapAppHealthChecks();
 app.MapControllers();
 app.MapHub<TodoApp.Api.Hubs.TodoHub>("/hubs/todo");
 
+app.MapGet("/api/admin/migrate", async (ApplicationDbContext db, ILogger<Program> logger) =>
+{
+    try
+    {
+        var pending = await db.Database.GetPendingMigrationsAsync();
+        var pendingList = pending.ToList();
+        await db.Database.MigrateAsync();
+        return Results.Ok(new
+        {
+            status = "Success",
+            message = "Migration işlemi başarıyla tamamlandı.",
+            appliedMigrations = pendingList
+        });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Manuel migration tetiklemesinde hata oluştu: {Message}", ex.Message);
+        return Results.Problem(detail: ex.ToString(), title: "Migration Hatası");
+    }
+});
+
 // T11.1.3: Otomatik Veritabanı Migration (Arka planda çalışarak web sunucusunun hemen ayağa kalkmasını sağlar)
 _ = Task.Run(async () =>
 {
