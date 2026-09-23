@@ -78,7 +78,9 @@ public class ExceptionHandlingMiddleware
         };
 
         var isServerError = statusCode == HttpStatusCode.InternalServerError;
-        var detail = exception.Message;
+        var detail = isServerError && !_environment.IsDevelopment()
+            ? "Beklenmeyen bir sunucu hatası oluştu."
+            : exception.Message;
 
         var problemDetails = new ProblemDetails
         {
@@ -91,17 +93,14 @@ public class ExceptionHandlingMiddleware
 
         problemDetails.Extensions["traceId"] = context.TraceIdentifier;
 
-        if (isServerError)
+        if (isServerError && _environment.IsDevelopment())
         {
             problemDetails.Extensions["exceptionType"] = exception.GetType().Name;
             if (exception.InnerException != null)
             {
                 problemDetails.Extensions["innerException"] = exception.InnerException.Message;
             }
-            if (_environment.IsDevelopment())
-            {
-                problemDetails.Extensions["stackTrace"] = exception.StackTrace;
-            }
+            problemDetails.Extensions["stackTrace"] = exception.StackTrace;
         }
 
         if (exception is ValidationException valEx && valEx.Errors?.Count > 0)

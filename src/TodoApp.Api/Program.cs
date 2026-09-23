@@ -76,7 +76,14 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         ?? builder.Configuration["ConnectionStrings:DefaultConnection"]
         ?? builder.Configuration["ConnectionStrings__DefaultConnection"]
         ?? builder.Configuration["DefaultConnection"];
-    options.UseSqlServer(connectionString);
+
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null);
+    });
 });
 
 builder.Services.AddScoped<TodoApp.Application.Interfaces.IUserRepository, TodoApp.Infrastructure.Repositories.UserRepository>();
@@ -145,7 +152,19 @@ if (string.IsNullOrWhiteSpace(jwtSettings.Key) || jwtSettings.Key.Length < 32)
 {
     jwtSettings.Key = builder.Configuration["Jwt:Key"]
         ?? builder.Configuration["Jwt__Key"]
-        ?? "super_secret_jwt_key_that_is_at_least_32_characters_long_12345!";
+        ?? string.Empty;
+}
+
+if (string.IsNullOrWhiteSpace(jwtSettings.Key) || jwtSettings.Key.Length < 32)
+{
+    if (builder.Environment.IsDevelopment())
+    {
+        jwtSettings.Key = "super_secret_jwt_key_that_is_at_least_32_characters_long_12345!";
+    }
+    else
+    {
+        throw new InvalidOperationException("Üretim (Production) ortamında geçerli bir JWT Secret Key (en az 32 karakter) yapılandırılmalıdır.");
+    }
 }
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -243,52 +262,26 @@ app.MapAppHealthChecks();
 app.MapControllers();
 app.MapHub<TodoApp.Api.Hubs.TodoHub>("/hubs/todo");
 
-app.MapGet("/api/admin/migrate", async (ApplicationDbContext db, ILogger<Program> logger) =>
+// T11.1.3: Otomatik Veritabanı Migration (Uygulama açılışında şema kontrolü ve güncellemesi)
+using (var scope = app.Services.CreateScope())
 {
-    try
+    var services = scope.ServiceProvider;
+    var dbContext = services.GetRequiredService<ApplicationDbContext>();
+    if (dbContext.Database.IsSqlServer())
     {
-        var pending = await db.Database.GetPendingMigrationsAsync();
-        var pendingList = pending.ToList();
-        await db.Database.MigrateAsync();
-        return Results.Ok(new
-        {
-            status = "Success",
-            message = "Migration işlemi başarıyla tamamlandı.",
-            appliedMigrations = pendingList
-        });
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Manuel migration tetiklemesinde hata oluştu: {Message}", ex.Message);
-        return Results.Problem(detail: ex.ToString(), title: "Migration Hatası");
-    }
-});
-
-// T11.1.3: Otomatik Veritabanı Migration (Arka planda çalışarak web sunucusunun hemen ayağa kalkmasını sağlar)
-_ = Task.Run(async () =>
-{
-    try
-    {
-        using var scope = app.Services.CreateScope();
-        var services = scope.ServiceProvider;
         var logger = services.GetRequiredService<ILogger<Program>>();
-        var dbContext = services.GetRequiredService<ApplicationDbContext>();
-        if (dbContext.Database.IsSqlServer())
+        try
         {
             logger.LogInformation("Veritabanı migration kontrolü başlatılıyor...");
             await dbContext.Database.MigrateAsync();
-            logger.LogInformation("Veritabanı migration işlemi başarıyla tamamlandı.");
+            logger.LogInformation("Veritabanı güncel ve migration işlemi başarıyla tamamlandı.");
         }
-    }
-    catch (Exception ex)
-    {
-        try
+        catch (Exception ex)
         {
-            var logger = app.Services.GetRequiredService<ILogger<Program>>();
-            logger.LogError(ex, "Veritabanı migration işlemi sırasında hata oluştu: {Message}", ex.Message);
+            logger.LogCritical(ex, "Veritabanı migration işlemi sırasında kritik hata oluştu: {Message}", ex.Message);
+            throw;
         }
-        catch { }
     }
-});
+}
 
 app.Run();
