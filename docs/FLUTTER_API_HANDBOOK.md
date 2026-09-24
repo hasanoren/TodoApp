@@ -608,3 +608,4 @@ Uygulamada SignalR üzerinden anlık senkronizasyon sağlanır.
    * En az 8 karakter, en fazla 128 karakter.
    * En az 1 büyük harf (`A-Z`), en az 1 küçük harf (`a-z`), en az 1 rakam (`0-9`).
 4. **Çöp Kutusu:** Görev silindiğinde doğrudan yok olmaz; `/trash` ekranından geri yüklenebilir (`restore`) veya kalıcı olarak silinebilir.
+

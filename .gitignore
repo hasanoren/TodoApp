@@ -18,9 +18,8 @@ out/
 ## Rider
 .idea/
 
-appsettings.Development.json
+appsettings.json
 appsettings.*.json
-!appsettings.json
 !appsettings.Example.json
 *.env
 .env

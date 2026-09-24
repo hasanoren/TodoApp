@@ -23,6 +23,9 @@ jobs:
         with:
           dotnet-version: '10.x'
 
+      - name: Setup appsettings from example
+        run: Copy-Item src/TodoApp.Api/appsettings.Example.json src/TodoApp.Api/appsettings.json
+
       - name: Build with dotnet
         run: dotnet build --configuration Release
 
