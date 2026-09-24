@@ -110,7 +110,7 @@ public class TodoItemsController : ControllerBase
         var _activityService = HttpContext.RequestServices.GetRequiredService<ITodoItemActivityService>();
         var activities = await _activityService.GetActivitiesByTaskIdAsync(id, userId);
 
-        return Ok(activities);
+        return Ok(new CollectionResponse<TodoItemActivityResponse>(activities));
     }
 }
 

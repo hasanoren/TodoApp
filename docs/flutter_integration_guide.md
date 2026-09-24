@@ -152,6 +152,106 @@ class TodoSignalRService {
 
 ---
 
+### Adım 2.5: Flutter Tarafında Kullanılacak Standart Yanıt Modelleri
+
+API yanıtlarını Flutter'da tip güvenli bir şekilde karşılamak için şu 4 temel Dart modelini oluşturman yeterlidir:
+
+```dart
+// 1. Sayfalanmış Listeler İçin (Örn: GET /api/TodoItems)
+class PaginatedResponse<T> {
+  final List<T> items;
+  final int totalCount;
+  final int page;
+  final int pageSize;
+  final int totalPages;
+  final bool hasNextPage;
+  final bool hasPreviousPage;
+
+  PaginatedResponse({
+    required this.items,
+    required this.totalCount,
+    required this.page,
+    required this.pageSize,
+    required this.totalPages,
+    required this.hasNextPage,
+    required this.hasPreviousPage,
+  });
+
+  factory PaginatedResponse.fromJson(Map<String, dynamic> json, T Function(dynamic) fromJsonT) {
+    return PaginatedResponse(
+      items: (json['items'] as List).map(fromJsonT).toList(),
+      totalCount: json['totalCount'],
+      page: json['page'],
+      pageSize: json['pageSize'],
+      totalPages: json['totalPages'],
+      hasNextPage: json['hasNextPage'],
+      hasPreviousPage: json['hasPreviousPage'],
+    );
+  }
+}
+
+// 2. Düz Listeler İçin (Örn: /subtasks, /tags, /shares, /activities, /todolists)
+class CollectionResponse<T> {
+  final List<T> items;
+
+  CollectionResponse({required this.items});
+
+  factory CollectionResponse.fromJson(Map<String, dynamic> json, T Function(dynamic) fromJsonT) {
+    return CollectionResponse(
+      items: (json['items'] as List).map(fromJsonT).toList(),
+    );
+  }
+}
+
+// 3. Bilgi/Onay Mesajı Dönen İşlemler İçin (Örn: forgot-password, shares, transfer kabul/red)
+class MessageResponse {
+  final String message;
+
+  MessageResponse({required this.message});
+
+  factory MessageResponse.fromJson(Map<String, dynamic> json) {
+    return MessageResponse(message: json['message'] as String);
+  }
+}
+
+// 4. Hata Yanıtları İçin (RFC 7807 ProblemDetails - 400, 401, 403, 404, 429, 500)
+class ProblemDetails {
+  final String? type;
+  final String? title;
+  final int status;
+  final String? detail;
+  final String? instance;
+  final String? traceId;
+  final Map<String, List<String>>? errors;
+
+  ProblemDetails({
+    this.type,
+    this.title,
+    required this.status,
+    this.detail,
+    this.instance,
+    this.traceId,
+    this.errors,
+  });
+
+  factory ProblemDetails.fromJson(Map<String, dynamic> json) {
+    return ProblemDetails(
+      type: json['type'],
+      title: json['title'],
+      status: json['status'] ?? 500,
+      detail: json['detail'],
+      instance: json['instance'],
+      traceId: json['traceId'],
+      errors: (json['errors'] as Map<String, dynamic>?)?.map(
+        (key, value) => MapEntry(key, List<String>.from(value)),
+      ),
+    );
+  }
+}
+```
+
+---
+
 ## 📋 BÖLÜM 3: Flutter'da Kullanılacak Başlıca Endpoint'ler
 
 Tüm endpoint'lerin detaylı şeması için repodaki [api-endpoints.md](file:///c:/Projects/TodoApp/TodoApp/docs/api-endpoints.md) dosyasına bakabilirsin. En sık kullanacağın rotalar:
@@ -177,3 +277,4 @@ Tüm endpoint'lerin detaylı şeması için repodaki [api-endpoints.md](file:///
 1. **Adım 1.1** ve **1.2**'yi Azure üzerinde 5 dakikada tamamla (WebSockets ve E-posta).
 2. Bilgisayarında `flutter create todo_app_mobile` komutuyla projeyi başlat.
 3. [Bölüm 2.2](#adım-22-flutter-projesine-eklenecek-temel-paketler) paketlerini ekleyerek bir API servis sınıfı (`ApiClient`) yazmaya başla!
+

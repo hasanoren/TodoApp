@@ -160,5 +160,34 @@ public class CollectionResponseIntegrationTests : IClassFixture<CustomWebApplica
         Assert.NotEmpty(result.Items);
         Assert.Contains(result.Items, u => u.Email == targetEmail);
     }
+
+    [Fact]
+    public async Task GetActivities_ReturnsWrappedCollectionResponse()
+    {
+        var (token, _) = await AuthenticateUserAsync();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // 1. Task oluştur
+        var taskRes = await _client.PostAsJsonAsync("/api/TodoItems", new CreateTodoItemRequest
+        {
+            Title = "Aktivite Testi Görevi"
+        });
+        var task = await taskRes.Content.ReadFromJsonAsync<TodoItemResponse>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        // 2. GET /api/todoitems/{taskId}/activities çağır
+        var response = await _client.GetAsync($"/api/todoitems/{task!.Id}/activities");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var rawJson = await response.Content.ReadAsStringAsync();
+        Assert.StartsWith("{", rawJson.Trim());
+        Assert.Contains("\"items\"", rawJson);
+
+        var result = await response.Content.ReadFromJsonAsync<CollectionResponse<TodoItemActivityResponse>>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        Assert.NotNull(result);
+        Assert.NotNull(result.Items);
+    }
 }
 
