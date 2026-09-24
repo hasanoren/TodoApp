@@ -39,9 +39,10 @@ SignalR canlı bildirimlerinin mobil uygulamada en düşük gecikmeyle (WebSocke
 
 ---
 
-### Adım 1.3: Free Tier Cold-Start Önleme (İsteğe Bağlı)
+### Adım 1.3: Free Tier Cold-Start Hakkında Bilgi
 Azure App Service Free (F1) planında, API'ye yaklaşık 20 dakika boyunca hiç istek gelmezse sunucu uyku moduna geçer. İlk istek 10-15 saniye gecikebilir.
-* **Çözüm (Ücretsiz):** [UptimeRobot](https://uptimerobot.com) gibi ücretsiz bir izleme servisine kaydolup `https://todoapp-api-gudhgje6bvfqg3ev.centralus-01.azurewebsites.net/health` adresine her 10 dakikada bir HTTP GET isteği atan bir monitör ekleyebilirsin. Böylece sunucu hiçbir zaman uykuya dalmaz.
+
+> ⚠️ **Dikkat:** Free Tier'da günlük **60 CPU dakikası** kotası vardır. UptimeRobot gibi servislerle sürekli ping atmak sunucuyu uyanık tutar ama kotanızı erken tüketebilir ve gün ortasında API tamamen kapanabilir. Geliştirme/demo aşamasında cold-start gecikmesini kabul etmek, kotayı korumak açısından daha güvenlidir. Ücretli plana (B1) geçtiğinizde "Always On" özelliği otomatik olarak bu sorunu çözer.
 
 ---
 
@@ -64,7 +65,7 @@ Azure App Service Free (F1) planında, API'ye yaklaşık 20 dakika boyunca hiç 
 ---
 
 ### Adım 2.2: Flutter Projesine Eklenecek Temel Paketler
-Yeni bir Flutter projesi oluşturduktan (`flutter create todo_mobile`) sonra `pubspec.yaml` dosyana şu paketleri eklemen önerilir:
+Yeni bir Flutter projesi oluşturduktan (`flutter create todo_mobile`) sonra `pubspec.yaml` dosyana şu paketleri eklemen önerilir. Versiyon numaralarını [pub.dev](https://pub.dev) üzerinden güncel sürümleriyle kontrol et:
 
 ```yaml
 dependencies:
@@ -77,9 +78,6 @@ dependencies:
   # Güvenli Token Saklama (Keychain & EncryptedSharedPreferences)
   flutter_secure_storage: ^9.2.2
 
-  # Canlı Bildirimler (SignalR)
-  signalr_netcore: ^1.4.1
-
   # Durum Yönetimi (State Management - İsteğe göre Bloc veya Riverpod)
   flutter_riverpod: ^2.6.1
 
@@ -87,32 +85,46 @@ dependencies:
   json_annotation: ^4.9.0
 ```
 
+> **Not:** SignalR (canlı bildirimler) entegrasyonu için `signalr_netcore` veya `signalr_core` paketleri kullanılabilir. Bu paketler community-maintained olduğundan, ilk MVP'de normal REST polling ile başlayıp SignalR'ı ikinci iterasyonda eklemeniz önerilir.
+
 ---
 
 ### Adım 2.3: Kimlik Doğrulama (Auth Flow) Mimarisi
 
-Mobil uygulamada token akışını şu sırayla kurmalısın:
+API, refresh token'ı doğrudan **JSON response body** içinde döner. Mobil uygulamada bu token'ı `flutter_secure_storage` ile cihazın güvenli deposuna (iOS Keychain / Android EncryptedSharedPreferences) kaydetmen gerekir.
+
+Token akışını şu sırayla kurmalısın:
 
 1. **Kayıt ve Giriş (`POST /api/Auth/register`, `POST /api/Auth/login`):**
    * İstek gövdesi: `{ "email": "...", "password": "..." }`
-   * Başarılı yanıtta dönen `token` (Access Token) ve `refreshToken` değerlerini `flutter_secure_storage` ile güvenli belleğe kaydet.
+   * Başarılı yanıt:
+     ```json
+     {
+       "userId": "guid",
+       "email": "user@example.com",
+       "token": "eyJhbG...",
+       "refreshToken": "abc123..."
+     }
+     ```
+   * `token` (Access Token) ve `refreshToken` değerlerini `flutter_secure_storage` ile güvenli belleğe kaydet.
 2. **Otomatik Bearer Token Entegrasyonu (`Dio Interceptor`):**
    * Her API isteğinde header'a `Authorization: Bearer <token>` ekle.
 3. **Sessiz Token Yenileme (Silent Refresh - 401 Handling):**
    * Eğer API bir istekte `401 Unauthorized` dönerse, kullanıcıyı login ekranına atmadan önce kaydedilen `refreshToken` ile `POST /api/Auth/refresh` endpoint'ine git.
+   * İstek gövdesi: `{ "refreshToken": "abc123..." }`
    * Yeni token gelirse isteği tekrarla.
    * Refresh token da geçersizse kullanıcıyı Login ekranına yönlendir.
 4. **Hata Yönetimi (RFC 7807 ProblemDetails):**
    * API tüm hatalarda standart JSON döner:
      * `status: 400` -> Doğrulama hatası (`detail` ve `errors` oku).
-     * `status: 429` -> Rate limit hatası (`Retry-After` süresi kadar kullanıcıyı beklet).
+     * `status: 429` -> Rate limit hatası (`Retry-After` header'ı kadar kullanıcıyı beklet).
      * `status: 500` -> Sunucu hatası (`detail: "Beklenmeyen bir sunucu hatası oluştu."`).
 
 ---
 
-### Adım 2.4: SignalR Canlı Güncelleme Entegrasyonu
+### Adım 2.4: SignalR Canlı Güncelleme Entegrasyonu (İkinci İterasyon İçin)
 
-Görev paylaşıldığında, tamamlandığında veya güncellendiğinde Flutter uygulamasının anında tetiklenmesi için:
+Görev paylaşıldığında, tamamlandığında veya güncellendiğinde Flutter uygulamasının anında tetiklenmesi için. İlk MVP'de bunu atlayıp düzenli polling (`Timer` ile her 30 saniyede `GET /api/TodoItems` çağırma) kullanabilirsin. Hazır olduğunda:
 
 ```dart
 import 'package:signalr_netcore/signalr_netcore.dart';
@@ -256,19 +268,25 @@ class ProblemDetails {
 
 Tüm endpoint'lerin detaylı şeması için repodaki [api-endpoints.md](file:///c:/Projects/TodoApp/TodoApp/docs/api-endpoints.md) dosyasına bakabilirsin. En sık kullanacağın rotalar:
 
-| İşlem | Metot & Yol | Açıklama |
+| İşlem | Metot & Yol | Yanıt Tipi |
 |---|---|---|
-| **Giriş** | `POST /api/Auth/login` | Token ve RefreshToken döner |
-| **Kayıt** | `POST /api/Auth/register` | Yeni kullanıcı oluşturur |
-| **Token Yenileme** | `POST /api/Auth/refresh` | Süresi dolan token'ı yeniler |
-| **Şifre Sıfırlama** | `POST /api/Auth/forgot-password` | Sıfırlama linki yollar |
-| **Görevleri Listele** | `GET /api/TodoItems?page=1&pageSize=20` | Sayfalanmış görev listesi |
-| **Görev Oluştur** | `POST /api/TodoItems` | Yeni görev ekler |
-| **Görevi Tamamla** | `PATCH /api/TodoItems/{id}/complete` | Görev durumunu günceller |
-| **Görevi Sil (Çöp Kutusu)** | `DELETE /api/TodoItems/{id}` | Soft delete yapar |
-| **Alt Görevler** | `GET /api/TodoItems/{id}/subtasks` | Alt görevleri getirir |
-| **Etiketler** | `GET /api/Tags` | Kullanıcının etiketlerini listeler |
-| **Görev Paylaşımı** | `POST /api/TaskShares` | Başka bir kullanıcıyla görev paylaşır |
+| **Kayıt** | `POST /api/Auth/register` | `AuthResponse` (token + refreshToken) |
+| **Giriş** | `POST /api/Auth/login` | `AuthResponse` (token + refreshToken) |
+| **Token Yenileme** | `POST /api/Auth/refresh` | `AuthResponse` (yeni token + refreshToken) |
+| **Çıkış** | `POST /api/Auth/logout` | `204 No Content` |
+| **Şifre Sıfırlama** | `POST /api/Auth/forgot-password` | `MessageResponse` |
+| **Görevleri Listele** | `GET /api/TodoItems?page=1&pageSize=20` | `PaginatedResponse<TodoItem>` |
+| **Görev Oluştur** | `POST /api/TodoItems` | `TodoItemResponse` |
+| **Görev Detayı** | `GET /api/TodoItems/{id}` | `TodoItemResponse` |
+| **Görevi Güncelle** | `PUT /api/TodoItems/{id}` | `TodoItemResponse` |
+| **Görevi Tamamla** | `PATCH /api/TodoItems/{id}/complete` | `TodoItemResponse` |
+| **Görevi Sil** | `DELETE /api/TodoItems/{id}` | `204 No Content` |
+| **Alt Görevler** | `GET /api/TodoItems/{id}/subtasks` | `CollectionResponse<SubTask>` |
+| **Etiketler** | `GET /api/Tags` | `CollectionResponse<Tag>` |
+| **Görev Paylaşımı** | `POST /api/TodoItems/{taskId}/shares` | `MessageResponse` |
+| **Paylaşılan Kullanıcılar** | `GET /api/TodoItems/{taskId}/shares` | `CollectionResponse<SharedUser>` |
+| **Aktivite Geçmişi** | `GET /api/TodoItems/{id}/activities` | `CollectionResponse<Activity>` |
+| **Listeler** | `GET /api/TodoLists` | `CollectionResponse<TodoList>` |
 
 ---
 
@@ -277,4 +295,3 @@ Tüm endpoint'lerin detaylı şeması için repodaki [api-endpoints.md](file:///
 1. **Adım 1.1** ve **1.2**'yi Azure üzerinde 5 dakikada tamamla (WebSockets ve E-posta).
 2. Bilgisayarında `flutter create todo_app_mobile` komutuyla projeyi başlat.
 3. [Bölüm 2.2](#adım-22-flutter-projesine-eklenecek-temel-paketler) paketlerini ekleyerek bir API servis sınıfı (`ApiClient`) yazmaya başla!
-

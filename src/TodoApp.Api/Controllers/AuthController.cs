@@ -23,11 +23,6 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Register(RegisterRequest request)
     {
         var result = await _authService.RegisterAsync(request);
-        if (!string.IsNullOrEmpty(result.RefreshToken))
-        {
-            SetRefreshTokenCookie(result.RefreshToken);
-            result.RefreshToken = string.Empty; // T10.2.4: XSS koruması için body'den temizle
-        }
         return Ok(result);
     }
 
@@ -36,57 +31,20 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login(LoginRequest request)
     {
         var result = await _authService.LoginAsync(request);
-        if (!string.IsNullOrEmpty(result.RefreshToken))
-        {
-            SetRefreshTokenCookie(result.RefreshToken);
-            result.RefreshToken = string.Empty; // T10.2.4: XSS koruması için body'den temizle
-        }
         return Ok(result);
     }
 
     [HttpPost("refresh")]
-    public async Task<IActionResult> Refresh([FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] RefreshTokenRequest? request = null)
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
     {
-        var refreshToken = request?.RefreshToken;
-        if (string.IsNullOrWhiteSpace(refreshToken))
-        {
-            Request.Cookies.TryGetValue("refreshToken", out refreshToken);
-        }
-
-        if (string.IsNullOrWhiteSpace(refreshToken))
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Geçersiz İstek",
-                Detail = "Refresh token cookie veya istek gövdesinde bulunamadı.",
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
-
-        var result = await _authService.RefreshTokenAsync(new RefreshTokenRequest { RefreshToken = refreshToken });
-        if (!string.IsNullOrEmpty(result.RefreshToken))
-        {
-            SetRefreshTokenCookie(result.RefreshToken);
-            result.RefreshToken = string.Empty; // T10.2.4: XSS koruması için body'den temizle
-        }
+        var result = await _authService.RefreshTokenAsync(request);
         return Ok(result);
     }
 
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout([FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] RefreshTokenRequest? request = null)
+    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
     {
-        var refreshToken = request?.RefreshToken;
-        if (string.IsNullOrWhiteSpace(refreshToken))
-        {
-            Request.Cookies.TryGetValue("refreshToken", out refreshToken);
-        }
-
-        if (!string.IsNullOrWhiteSpace(refreshToken))
-        {
-            await _authService.LogoutAsync(new RefreshTokenRequest { RefreshToken = refreshToken });
-        }
-
-        RemoveRefreshTokenCookie();
+        await _authService.LogoutAsync(request);
         return NoContent(); // 204 — başarılı ama dönecek içerik yok
     }
 
@@ -127,11 +85,6 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> LoginWithTwoFactor([FromBody] TwoFactorLoginRequest request)
     {
         var response = await _authService.LoginWithTwoFactorAsync(request);
-        if (!string.IsNullOrEmpty(response.RefreshToken))
-        {
-            SetRefreshTokenCookie(response.RefreshToken);
-            response.RefreshToken = string.Empty; // T10.2.4: XSS koruması için body'den temizle
-        }
         return Ok(response);
     }
 
@@ -160,30 +113,6 @@ public class AuthController : ControllerBase
         var userId = GetUserId();
         await _authService.DisableTwoFactorAsync(userId, request);
         return Ok(new { message = "İki adımlı doğrulama devre dışı bırakıldı." });
-    }
-
-    private void SetRefreshTokenCookie(string refreshToken)
-    {
-        var cookieOptions = new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
-            Expires = DateTime.UtcNow.AddDays(7),
-            Path = "/"
-        };
-        Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
-    }
-
-    private void RemoveRefreshTokenCookie()
-    {
-        Response.Cookies.Delete("refreshToken", new CookieOptions
-        {
-            Path = "/",
-            Secure = true,
-            HttpOnly = true,
-            SameSite = SameSiteMode.Strict
-        });
     }
 
     private Guid GetUserId()

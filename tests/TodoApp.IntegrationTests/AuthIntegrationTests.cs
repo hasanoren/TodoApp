@@ -43,13 +43,8 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>
 
         Assert.NotNull(authResult);
         Assert.False(string.IsNullOrWhiteSpace(authResult.Token));
-        Assert.True(string.IsNullOrWhiteSpace(authResult.RefreshToken)); // T10.2.4: XSS koruması için body'den çıkarıldı
+        Assert.False(string.IsNullOrWhiteSpace(authResult.RefreshToken)); // Refresh token body'de dönmeli
         Assert.Equal(email, authResult.Email);
-
-        var cookieHeader = registerResponse.Headers.GetValues("Set-Cookie").FirstOrDefault(c => c.StartsWith("refreshToken="));
-        Assert.NotNull(cookieHeader);
-        Assert.Contains("httponly", cookieHeader, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("samesite=strict", cookieHeader, StringComparison.OrdinalIgnoreCase);
 
         // 2. LOGIN
         var loginRequest = new LoginRequest
@@ -66,28 +61,24 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>
 
         Assert.NotNull(loginResult);
         Assert.False(string.IsNullOrWhiteSpace(loginResult.Token));
-
-        var loginCookie = ExtractRefreshTokenFromCookies(loginResponse);
-        Assert.False(string.IsNullOrWhiteSpace(loginCookie));
+        Assert.False(string.IsNullOrWhiteSpace(loginResult.RefreshToken));
 
         // 3. REFRESH TOKEN
         var refreshRequest = new RefreshTokenRequest
         {
-            RefreshToken = loginCookie
+            RefreshToken = loginResult.RefreshToken
         };
 
         var refreshResponse = await _client.PostAsJsonAsync("/api/Auth/refresh", refreshRequest);
         Assert.Equal(HttpStatusCode.OK, refreshResponse.StatusCode);
-
-        var refreshCookie = ExtractRefreshTokenFromCookies(refreshResponse);
-        Assert.False(string.IsNullOrWhiteSpace(refreshCookie));
-        Assert.NotEqual(loginCookie, refreshCookie); // Token rotasyonu
 
         var refreshResult = await refreshResponse.Content.ReadFromJsonAsync<AuthResponse>(
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         Assert.NotNull(refreshResult);
         Assert.False(string.IsNullOrWhiteSpace(refreshResult.Token));
+        Assert.False(string.IsNullOrWhiteSpace(refreshResult.RefreshToken));
+        Assert.NotEqual(loginResult.RefreshToken, refreshResult.RefreshToken); // Token rotasyonu
 
         // 4. CHANGE PASSWORD
         _client.DefaultRequestHeaders.Authorization =
@@ -105,7 +96,7 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         // 5. LOGOUT
         var logoutRequest = new RefreshTokenRequest
         {
-            RefreshToken = refreshCookie
+            RefreshToken = refreshResult.RefreshToken
         };
 
         var logoutResponse = await _client.PostAsJsonAsync("/api/Auth/logout", logoutRequest);
@@ -140,7 +131,7 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         Assert.NotNull(authResult);
-        var plainRefreshToken = ExtractRefreshTokenFromCookies(registerResponse);
+        var plainRefreshToken = authResult.RefreshToken;
         Assert.False(string.IsNullOrWhiteSpace(plainRefreshToken));
 
         // 2. DB'DEKİ TOKENI KONTROL ET
@@ -163,44 +154,12 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task RefreshToken_ViaHttpOnlyCookie_SucceedsWithoutBody()
+    public async Task RefreshToken_WithInvalidToken_ReturnsBadRequest()
     {
-        // 1. REGISTER to get cookie
-        var email = $"cookie_test_{Guid.NewGuid():N}@example.com";
-        var password = "Password123!";
-        var registerRequest = new RegisterRequest { Email = email, Password = password };
-
-        var registerResponse = await _client.PostAsJsonAsync("/api/Auth/register", registerRequest);
-        Assert.Equal(HttpStatusCode.OK, registerResponse.StatusCode);
-
-        var token = ExtractRefreshTokenFromCookies(registerResponse);
-
-        // 2. Send refresh request with Cookie header and empty body
-        var refreshRequest = new HttpRequestMessage(HttpMethod.Post, "/api/Auth/refresh");
-        refreshRequest.Headers.Add("Cookie", $"refreshToken={token}");
-
-        var refreshResponse = await _client.SendAsync(refreshRequest);
-        Assert.Equal(HttpStatusCode.OK, refreshResponse.StatusCode);
-
-        var newCookie = ExtractRefreshTokenFromCookies(refreshResponse);
-        Assert.False(string.IsNullOrWhiteSpace(newCookie));
-        Assert.NotEqual(token, newCookie);
-    }
-
-    private static string ExtractRefreshTokenFromCookies(HttpResponseMessage response)
-    {
-        if (response.Headers.TryGetValues("Set-Cookie", out var cookieHeaders))
+        var refreshResponse = await _client.PostAsJsonAsync("/api/Auth/refresh", new RefreshTokenRequest
         {
-            foreach (var header in cookieHeaders)
-            {
-                if (header.StartsWith("refreshToken="))
-                {
-                    var parts = header.Split(';');
-                    var rawValue = parts[0].Substring("refreshToken=".Length);
-                    return Uri.UnescapeDataString(rawValue);
-                }
-            }
-        }
-        return string.Empty;
+            RefreshToken = "invalid-token-value"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, refreshResponse.StatusCode);
     }
 }
