@@ -273,7 +273,8 @@ Her task'ta ilgili BR-XXX numarası belirtilmiştir. Bir task'ı uygularken ilgi
 10. **EPIC 8** (Production Hardening) — ✅ Tamamlandı (Rate Limiting, CORS, Headers, Secrets, Options, MaxLength, Index Seek, RFC 7807, AsNoTracking, Health Checks, Serilog)
 11. **EPIC 9** (İleri Seviye Özellikler & UX) — ✅ Tamamlandı
 12. **EPIC 10** (Refactor & Hardening) — ✅ Tamamlandı
-13. **EPIC 11** (Deployment & Production Hazırlığı) — 📋 Backlog'da bekliyor
+13. **EPIC 11** (Deployment & Production Hazırlığı) — ✅ Tamamlandı
+14. **EPIC 12** (Architecture & Clean Code Refactoring) — 📋 Backlog'da bekliyor
 
 ---
 
@@ -318,6 +319,25 @@ Her task'ta ilgili BR-XXX numarası belirtilmiştir. Bir task'ı uygularken ilgi
 - [x] T11.1.3 — **Otomatik Veritabanı Migration:** Canlı ortamda container başlatıldığında veritabanı şemasının otomatik güncellenmesi (`context.Database.MigrateAsync()`)
 - [x] T11.1.4 — **Multi-stage Dockerfile:** .NET 10 Web API projesini derleyip optimize production image'ı üreten Dockerfile hazırlanması
 - [x] T11.1.5 — **Production Environment Variables Şablonu:** Canlıda kullanılacak DB connection string, güçlü JWT Key, SMTP ve CORS domain ayarlarını içeren `.env.production.example` şablonunun oluşturulması
+
+---
+
+## EPIC 12: Architecture & Clean Code Refactoring (`Program.cs` Modülerleştirme)
+
+> **Kaynak:** 25 Eylül 2026 tarihli kod kalitesi ve mimari analizi. `Program.cs` dosyasının "God File" olmaktan çıkarılıp kurumsal Extension Method Pattern ile modülerleştirilmesi (287 satırdan ~40 satıra indirilmesi).
+
+### User Story 12.1 — Servis Kayıtlarının (Dependency Injection) Modülerleştirilmesi
+- [ ] T12.1.1 — **Katman Bazlı Servis Extension'ları:** `TodoApp.Application` içine `AddApplicationServices()` ve `TodoApp.Infrastructure` içine `AddInfrastructureServices()` extension metotlarının yazılarak `Program.cs`'teki 25+ satırlık `AddScoped` karmaşasının paketlenmesi
+- [ ] T12.1.2 — **Veritabanı Konfigürasyonunun İzolasyonu:** `Program.cs`'teki `AddDbContext` ve `EnableRetryOnFailure` bloğunun `AddDatabaseConfiguration(configuration)` extension metoduna taşınması
+
+### User Story 12.2 — Güvenlik ve Kimlik Doğrulama Bloğunun İzolasyonu
+- [ ] T12.2.1 — **JWT & SecurityStamp Extension'ı:** `AddJwtAuthentication(configuration, environment)` extension metodunun oluşturulması; options binding, fail-fast anahtar doğrulaması, SignalR query string token çözümleme (`OnMessageReceived`) ve veritabanı `SecurityStamp` doğrulama (`OnTokenValidated`) bloklarının `JwtAuthenticationExtensions.cs` içine taşınması
+- [ ] T12.2.2 — **CORS ve Ters Proxy Yapılandırması:** `AddAppCors(configuration)` ve `AddAppForwardedHeaders()` extension metotları ile ağ yapılandırmalarının ayrıştırılması
+
+### User Story 12.3 — API Davranışları, Swagger ve Pipeline Orkestrasyonu
+- [ ] T12.3.1 — **Swagger & API Behavior İzolasyonu:** `AddSwaggerDocumentation()` ve RFC 7807 `InvalidModelStateResponseFactory` tanımlarının `ApiBehaviorExtensions.cs` içine taşınması
+- [ ] T12.3.2 — **Veritabanı Migration & Startup Orkestrasyonu:** `Program.cs` sonundaki 20 satırlık scope ve `MigrateAsync` bloğunun `ApplyDatabaseMigrationsAsync()` extension metoduna dönüştürülmesi
+- [ ] T12.3.3 — **`Program.cs` Sadeleştirmesi:** Tüm extension metotların `Program.cs` üzerinde çağrılarak ana dosyanın 287 satırdan 40-50 satırlık temiz bir orkestrasyona indirilmesi ve tüm testlerin (197 test) yeşil kaldığının doğrulanması
 
 ---
 
