@@ -51,15 +51,15 @@ Azure App Service Free (F1) planında, API'ye yaklaşık 20 dakika boyunca hiç 
 ### Adım 2.1: API Bağlantı Bilgileri
 * **Canlı Base URL:**
   ```text
-  https://todoapp-api-gudhgje6bvfqg3ev.centralus-01.azurewebsites.net
+  https://your-api.azurewebsites.net
   ```
 * **SignalR WebSocket Hub URL:**
   ```text
-  https://todoapp-api-gudhgje6bvfqg3ev.centralus-01.azurewebsites.net/hubs/todo
+  https://your-api.azurewebsites.net/hubs/todo
   ```
 * **Health Check URL:**
   ```text
-  https://todoapp-api-gudhgje6bvfqg3ev.centralus-01.azurewebsites.net/health
+  https://your-api.azurewebsites.net/health
   ```
 
 ---
@@ -135,7 +135,7 @@ class TodoSignalRService {
   final _storage = const FlutterSecureStorage();
 
   Future<void> initSignalR() async {
-    final serverUrl = "https://todoapp-api-gudhgje6bvfqg3ev.centralus-01.azurewebsites.net/hubs/todo";
+    final serverUrl = "https://your-api.azurewebsites.net/hubs/todo";
 
     hubConnection = HubConnectionBuilder()
         .withUrl(serverUrl, options: HttpConnectionOptions(

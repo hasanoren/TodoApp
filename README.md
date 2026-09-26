@@ -343,7 +343,6 @@ Silinen görevlerin normal listede görünmemesi gerekiyor ama çöp kutusu endp
 | [`docs/business-rules.md`](docs/business-rules.md) | 30 iş kuralı tanımı (BR-001 ~ BR-030) ve veritabanı şeması |
 | [`docs/business-rules-layers.md`](docs/business-rules-layers.md) | İş kurallarının DB vs Servis vs Hibrit katman haritası |
 | [`docs/security_audit.md`](docs/security_audit.md) | 16 maddelik güvenlik & performans denetim raporu (tümü çözüldü) |
-| [`docs/security_remediation_plan.md`](docs/security_remediation_plan.md) | İleri seviye güvenlik sertleştirmesi ve canlıya dağıtım iyileştirme rehberi |
 | [`docs/postman_manual_testing_flow.md`](docs/postman_manual_testing_flow.md) | Postman ile 11 adımlı uçtan uca özellik ve güvenlik test akış rehberi |
 | [`docs/test_matrix.md`](docs/test_matrix.md) | İş kuralı ↔ Test eşleşme matrisi (%100 yeşil) |
 | [`docs/smoke_test_guide.md`](docs/smoke_test_guide.md) | 10 adımlı Swagger ve canlı ortam uçtan uca doğrulama rehberi |

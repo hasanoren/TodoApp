@@ -8,10 +8,10 @@ Bu doküman, **TodoApp** projesinin Flutter mobil uygulamasını geliştirecek y
 
 | Kaynak | URL | Açıklama |
 |---|---|---|
-| **Canlı API Base URL** | `https://todoapp-api-gudhgje6bvfqg3ev.centralus-01.azurewebsites.net` | Tüm HTTP istekleri için kök adres |
-| **SignalR WebSocket Hub** | `https://todoapp-api-gudhgje6bvfqg3ev.centralus-01.azurewebsites.net/hubs/todo` | Canlı bildirimler ve senkronizasyon |
-| **Health Check (Liveness)**| `https://todoapp-api-gudhgje6bvfqg3ev.centralus-01.azurewebsites.net/health` | API'nin çalışıp çalışmadığını denetler |
-| **Health Check (Readiness)**| `https://todoapp-api-gudhgje6bvfqg3ev.centralus-01.azurewebsites.net/health/ready` | DB bağlantısını doğrular |
+| **Canlı API Base URL** | `https://your-api.azurewebsites.net` | Tüm HTTP istekleri için kök adres |
+| **SignalR WebSocket Hub** | `https://your-api.azurewebsites.net/hubs/todo` | Canlı bildirimler ve senkronizasyon |
+| **Health Check (Liveness)**| `https://your-api.azurewebsites.net/health` | API'nin çalışıp çalışmadığını denetler |
+| **Health Check (Readiness)**| `https://your-api.azurewebsites.net/health/ready` | DB bağlantısını doğrular |
 
 > **Header Bilgileri:**
 > * Tüm JSON isteklerinde: `Content-Type: application/json`

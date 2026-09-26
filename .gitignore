@@ -30,3 +30,6 @@ appsettings.*.json
 *.log
 logs/
 .DS_Store
+
+## Dahili Güvenlik Analizleri (Public repoda gizlenir)
+docs/security_remediation_plan.md

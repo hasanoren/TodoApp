@@ -2,7 +2,7 @@
 
 **Son Güncelleme:** 26 Eylül 2026  
 **Toplam Endpoint:** 48 (REST Endpoints + Realtime WebSocket Hub)  
-**Canlı Base URL (Azure):** `https://todoapp-api-gudhgje6bvfqg3ev.centralus-01.azurewebsites.net`  
+**Canlı Base URL (Azure):** `https://your-api.azurewebsites.net`  
 **Yerel Base URL:** `https://localhost:5240`  
 **Swagger UI:** [https://localhost:5240/swagger](https://localhost:5240/swagger)  
 **Kimlik Doğrulama:** Korumalı tüm endpoint'ler `Authorization: Bearer <JWT_TOKEN>` HTTP başlığı gerektirir.

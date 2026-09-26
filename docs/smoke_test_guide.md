@@ -18,7 +18,7 @@ Bu rehber, TodoApp API'sinin yeni bir ortama dağıtıldığında veya ana özel
    ```powershell
    dotnet run --project src/TodoApp.Api
    ```
-4. **Swagger Arayüzünü Aç:** `https://localhost:5240/swagger` (veya canlı ortam: `https://todoapp-api-gudhgje6bvfqg3ev.centralus-01.azurewebsites.net/swagger`)
+4. **Swagger Arayüzünü Aç:** `https://localhost:5240/swagger` (veya canlı ortam: `https://your-api.azurewebsites.net/swagger`)
 
 ---
 

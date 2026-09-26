@@ -3,7 +3,7 @@
 
 **Doküman Versiyonu:** 1.0  
 **Tarih:** 26 Eylül 2026  
-**Hedef Canlı URL:** `https://todoapp-api-gudhgje6bvfqg3ev.centralus-01.azurewebsites.net`  
+**Hedef Canlı URL:** `https://your-api.azurewebsites.net` (veya Azure App Service URL'niz)  
 **Yerel (Local) URL:** `http://localhost:5240`
 
 ---
@@ -30,7 +30,7 @@ Postman'de bir **Environment** oluşturup şu değişkenleri tanımlayın. İste
 
 | Değişken Adı | Varsayılan Değer | Açıklama |
 |---|---|---|
-| `baseUrl` | `https://todoapp-api-gudhgje6bvfqg3ev.centralus-01.azurewebsites.net` | Canlı veya local API adresi |
+| `baseUrl` | `https://your-api.azurewebsites.net` | Canlı veya local API adresi |
 | `user1_email` | `testuser1@example.com` | 1. Kullanıcı e-postası |
 | `user1_password` | `Password123!` | 1. Kullanıcı parolası |
 | `user1_token` | *(Boş)* | User 1'in Bearer JWT Token'ı |
