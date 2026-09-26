@@ -344,6 +344,7 @@ Silinen görevlerin normal listede görünmemesi gerekiyor ama çöp kutusu endp
 | [`docs/business-rules-layers.md`](docs/business-rules-layers.md) | İş kurallarının DB vs Servis vs Hibrit katman haritası |
 | [`docs/security_audit.md`](docs/security_audit.md) | 16 maddelik güvenlik & performans denetim raporu (tümü çözüldü) |
 | [`docs/security_remediation_plan.md`](docs/security_remediation_plan.md) | İleri seviye güvenlik sertleştirmesi ve canlıya dağıtım iyileştirme rehberi |
+| [`docs/postman_manual_testing_flow.md`](docs/postman_manual_testing_flow.md) | Postman ile 11 adımlı uçtan uca özellik ve güvenlik test akış rehberi |
 | [`docs/test_matrix.md`](docs/test_matrix.md) | İş kuralı ↔ Test eşleşme matrisi (%100 yeşil) |
 | [`docs/smoke_test_guide.md`](docs/smoke_test_guide.md) | 10 adımlı Swagger ve canlı ortam uçtan uca doğrulama rehberi |
 | [`docs/FLUTTER_API_HANDBOOK.md`](docs/FLUTTER_API_HANDBOOK.md) | Flutter mobil geliştiriciler için mimari ve API el kitabı |
@@ -360,7 +361,7 @@ Silinen görevlerin normal listede görünmemesi gerekiyor ama çöp kutusu endp
 | Toplam Epic | 12 |
 | Toplam User Story | 30+ |
 | Toplam Task | 100+ |
-| Otomatik Test | 197 (160 Unit + 37 Integration) |
+| Otomatik Test | 211 (169 Unit + 42 Integration) |
 | API Endpoint | 48 (REST + Real-time SignalR) |
 | İş Kuralı | 30 (BR-001 ~ BR-030) |
 | Güvenlik Denetim Maddesi | 16 (%100 giderildi) |
