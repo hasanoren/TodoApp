@@ -255,6 +255,72 @@ public class DatabaseCascadeIntegrationTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task DeleteUser_WhenSoftDeletedTasksHaveDeletedByOrCompletedBy_ClearsReferencesAndDeletesUser()
+    {
+        // ARRANGE
+        var userA = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "user-a@example.com",
+            PasswordHash = "hash",
+            Role = UserRole.User,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var userB = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "user-b@example.com",
+            PasswordHash = "hash",
+            Role = UserRole.User,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        // Task: Owned by User B, completed by User A, soft-deleted by User A
+        var softDeletedTask = new TodoItem
+        {
+            Id = Guid.NewGuid(),
+            OwnerId = userB.Id,
+            Title = "Soft deleted task",
+            Status = TodoItemStatus.Completed,
+            CompletedByUserId = userA.Id,
+            CompletedAt = DateTime.UtcNow,
+            IsDeleted = true,
+            DeletedByUserId = userA.Id,
+            DeletedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        using (var context = CreateContext())
+        {
+            context.Users.AddRange(userA, userB);
+            context.TodoItems.Add(softDeletedTask);
+            await context.SaveChangesAsync();
+        }
+
+        // ACT: User A is deleted using UserRepository.DeleteAsync
+        using (var context = CreateContext())
+        {
+            var userRepo = new TodoApp.Infrastructure.Repositories.UserRepository(context);
+            var userToDelete = await context.Users.FindAsync(userA.Id);
+            Assert.NotNull(userToDelete);
+            await userRepo.DeleteAsync(userToDelete);
+        }
+
+        // ASSERT: User A is deleted, and softDeletedTask now has null DeletedByUserId & CompletedByUserId
+        using (var context = CreateContext())
+        {
+            var deletedUser = await context.Users.FindAsync(userA.Id);
+            Assert.Null(deletedUser);
+
+            var item = await context.TodoItems.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == softDeletedTask.Id);
+            Assert.NotNull(item);
+            Assert.Null(item.CompletedByUserId);
+            Assert.Null(item.DeletedByUserId);
+        }
+    }
+
     public void Dispose()
     {
         _connection.Dispose();

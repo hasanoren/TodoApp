@@ -37,10 +37,13 @@ public class UserRepository : IUserRepository
         try
         {
             // SQL Server multiple cascade paths nedeniyle NoAction olan ilişkileri manuel temizliyoruz
-            await _context.TodoItems.Where(t => t.CompletedByUserId == user.Id)
+            // Not: Soft-delete edilmiş (IsDeleted = true) kayıtların da temizlenebilmesi için IgnoreQueryFilters() şarttır.
+            await _context.TodoItems.IgnoreQueryFilters()
+                .Where(t => t.CompletedByUserId == user.Id)
                 .ExecuteUpdateAsync(s => s.SetProperty(t => t.CompletedByUserId, (Guid?)null));
 
-            await _context.TodoItems.Where(t => t.DeletedByUserId == user.Id)
+            await _context.TodoItems.IgnoreQueryFilters()
+                .Where(t => t.DeletedByUserId == user.Id)
                 .ExecuteUpdateAsync(s => s.SetProperty(t => t.DeletedByUserId, (Guid?)null));
 
             await _context.TaskShares.Where(ts => ts.UserId == user.Id).ExecuteDeleteAsync();
