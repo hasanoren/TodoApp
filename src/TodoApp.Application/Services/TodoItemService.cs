@@ -10,6 +10,7 @@ namespace TodoApp.Application.Services;
 public class TodoItemService : ITodoItemService
 {
     private readonly ITodoItemRepository _todoItemRepository;
+    private readonly ITodoListRepository? _todoListRepository;
     private readonly ITaskAuthorizationService _taskAuthorizationService;
     private readonly INotificationService _notificationService;
     private readonly ITodoItemActivityService _activityService;
@@ -20,17 +21,28 @@ public class TodoItemService : ITodoItemService
         ITaskAuthorizationService taskAuthorizationService,
         INotificationService notificationService,
         ITodoItemActivityService activityService,
+        ITodoListRepository? todoListRepository = null,
         ILogger<TodoItemService>? logger = null)
     {
         _todoItemRepository = todoItemRepository;
         _taskAuthorizationService = taskAuthorizationService;
         _notificationService = notificationService;
         _activityService = activityService;
+        _todoListRepository = todoListRepository;
         _logger = logger ?? NullLogger<TodoItemService>.Instance;
     }
 
     public async Task<TodoItemResponse> CreateAsync(Guid userId, CreateTodoItemRequest request, CancellationToken cancellationToken = default)
     {
+        if (request.TodoListId.HasValue && _todoListRepository != null)
+        {
+            var list = await _todoListRepository.GetByIdAsync(request.TodoListId.Value);
+            if (list == null || list.OwnerId != userId || list.IsDeleted)
+            {
+                throw new ValidationException("Belirtilen görev listesi bulunamadı veya erişim yetkiniz yok.");
+            }
+        }
+
         var todoItem = new TodoItem
         {
             Id = Guid.NewGuid(),
@@ -88,6 +100,15 @@ public class TodoItemService : ITodoItemService
         Guid userId, Guid todoItemId, UpdateTodoItemRequest request, CancellationToken cancellationToken = default)
     {
         var todoItem = await _taskAuthorizationService.EnsureCanModifyAsync(todoItemId, userId);
+
+        if (request.TodoListId.HasValue && request.TodoListId != todoItem.TodoListId && _todoListRepository != null)
+        {
+            var list = await _todoListRepository.GetByIdAsync(request.TodoListId.Value);
+            if (list == null || list.OwnerId != todoItem.OwnerId || list.OwnerId != userId || list.IsDeleted)
+            {
+                throw new ValidationException("Belirtilen görev listesi bulunamadı veya erişim yetkiniz yok.");
+            }
+        }
 
         todoItem.Title = request.Title;
         todoItem.Description = request.Description;

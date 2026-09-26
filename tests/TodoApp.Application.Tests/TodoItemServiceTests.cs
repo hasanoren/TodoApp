@@ -12,6 +12,7 @@ public class TodoItemServiceTests
 {
     private readonly Mock<ITodoItemRepository> _mockRepo;
     private readonly Mock<ISubTaskRepository> _mockSubTaskRepo;
+    private readonly Mock<ITodoListRepository> _mockTodoListRepo;
     private readonly TodoItemService _service;
     private readonly Guid _ownerId = Guid.NewGuid();
     private readonly Guid _otherUserId = Guid.NewGuid();
@@ -20,10 +21,11 @@ public class TodoItemServiceTests
     {
         _mockRepo = new Mock<ITodoItemRepository>();
         _mockSubTaskRepo = new Mock<ISubTaskRepository>();
+        _mockTodoListRepo = new Mock<ITodoListRepository>();
         var authService = new TaskAuthorizationService(_mockRepo.Object, _mockSubTaskRepo.Object);
         var notificationServiceMock = new Mock<INotificationService>();
         var activityServiceMock = new Mock<ITodoItemActivityService>();
-        _service = new TodoItemService(_mockRepo.Object, authService, notificationServiceMock.Object, activityServiceMock.Object);
+        _service = new TodoItemService(_mockRepo.Object, authService, notificationServiceMock.Object, activityServiceMock.Object, _mockTodoListRepo.Object);
     }
 
     // --- BR-029: Yetkisiz erişimde 404 ---
@@ -456,6 +458,94 @@ public class TodoItemServiceTests
         Assert.Equal(1, result.TotalCount);
         Assert.Equal(1, result.Page);
         Assert.Single(result.Items);
+    }
+
+    // --- IDOR Koruması: TodoList Yetki ve Varlık Doğrulaması ---
+
+    [Fact]
+    public async Task CreateAsync_WhenTodoListBelongsToAnotherUser_ThrowsValidationException()
+    {
+        // ARRANGE
+        var listId = Guid.NewGuid();
+        var foreignList = new TodoList { Id = listId, OwnerId = _otherUserId, IsDeleted = false };
+
+        _mockTodoListRepo.Setup(r => r.GetByIdAsync(listId)).ReturnsAsync(foreignList);
+
+        var request = new CreateTodoItemRequest
+        {
+            Title = "Task with foreign list",
+            TodoListId = listId
+        };
+
+        // ACT & ASSERT
+        var ex = await Assert.ThrowsAsync<ValidationException>(() => _service.CreateAsync(_ownerId, request));
+        Assert.Equal("Belirtilen görev listesi bulunamadı veya erişim yetkiniz yok.", ex.Message);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenTodoListIsDeleted_ThrowsValidationException()
+    {
+        // ARRANGE
+        var listId = Guid.NewGuid();
+        var deletedList = new TodoList { Id = listId, OwnerId = _ownerId, IsDeleted = true };
+
+        _mockTodoListRepo.Setup(r => r.GetByIdAsync(listId)).ReturnsAsync(deletedList);
+
+        var request = new CreateTodoItemRequest
+        {
+            Title = "Task with deleted list",
+            TodoListId = listId
+        };
+
+        // ACT & ASSERT
+        var ex = await Assert.ThrowsAsync<ValidationException>(() => _service.CreateAsync(_ownerId, request));
+        Assert.Equal("Belirtilen görev listesi bulunamadı veya erişim yetkiniz yok.", ex.Message);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenTodoListBelongsToUser_Succeeds()
+    {
+        // ARRANGE
+        var listId = Guid.NewGuid();
+        var validList = new TodoList { Id = listId, OwnerId = _ownerId, IsDeleted = false };
+
+        _mockTodoListRepo.Setup(r => r.GetByIdAsync(listId)).ReturnsAsync(validList);
+
+        var request = new CreateTodoItemRequest
+        {
+            Title = "Valid task in own list",
+            TodoListId = listId
+        };
+
+        // ACT
+        var result = await _service.CreateAsync(_ownerId, request);
+
+        // ASSERT
+        Assert.NotNull(result);
+        Assert.Equal(listId, result.TodoListId);
+        _mockRepo.Verify(r => r.AddAsync(It.Is<TodoItem>(t => t.TodoListId == listId), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WhenMovingToAnotherUsersTodoList_ThrowsValidationException()
+    {
+        // ARRANGE
+        var todoItem = CreateSampleTodoItem(_ownerId);
+        var targetListId = Guid.NewGuid();
+        var foreignList = new TodoList { Id = targetListId, OwnerId = _otherUserId, IsDeleted = false };
+
+        _mockRepo.Setup(r => r.GetByIdAsync(todoItem.Id)).ReturnsAsync(todoItem);
+        _mockTodoListRepo.Setup(r => r.GetByIdAsync(targetListId)).ReturnsAsync(foreignList);
+
+        var request = new UpdateTodoItemRequest
+        {
+            Title = "Updated title",
+            TodoListId = targetListId
+        };
+
+        // ACT & ASSERT
+        var ex = await Assert.ThrowsAsync<ValidationException>(() => _service.UpdateAsync(_ownerId, todoItem.Id, request));
+        Assert.Equal("Belirtilen görev listesi bulunamadı veya erişim yetkiniz yok.", ex.Message);
     }
 
     // --- Yardımcı ---

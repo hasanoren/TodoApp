@@ -73,5 +73,52 @@ public class TodoListIntegrationTests : IClassFixture<CustomWebApplicationFactor
         Assert.Single(filterResult.Items);
         Assert.Equal(itemInList!.Id, filterResult.Items[0].Id);
     }
+
+    [Fact]
+    public async Task CreateTask_WithAnotherUsersTodoList_ReturnsBadRequest_IDORPrevented()
+    {
+        // 1. User 1 creates a list
+        var user1Token = await AuthenticateUserAsync();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user1Token);
+
+        var listResponse = await _client.PostAsJsonAsync("/api/TodoLists", new CreateTodoListRequest
+        {
+            Name = "User 1 Secret List"
+        });
+        Assert.Equal(HttpStatusCode.Created, listResponse.StatusCode);
+        var user1List = await listResponse.Content.ReadFromJsonAsync<TodoListResponse>(JsonOptions);
+        Assert.NotNull(user1List);
+
+        // 2. User 2 logs in and tries to create a task assigned to User 1's list
+        var user2Token = await AuthenticateUserAsync();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user2Token);
+
+        var maliciousCreateResponse = await _client.PostAsJsonAsync("/api/TodoItems", new CreateTodoItemRequest
+        {
+            Title = "Malicious task injection",
+            TodoListId = user1List.Id
+        });
+
+        // ASSERT: 400 Bad Request (ValidationException: erişim yetkiniz yok)
+        Assert.Equal(HttpStatusCode.BadRequest, maliciousCreateResponse.StatusCode);
+
+        // 3. User 2 creates a regular task, then tries to update it to point to User 1's list
+        var validTaskResponse = await _client.PostAsJsonAsync("/api/TodoItems", new CreateTodoItemRequest
+        {
+            Title = "User 2 legitimate task"
+        });
+        Assert.Equal(HttpStatusCode.Created, validTaskResponse.StatusCode);
+        var user2Task = await validTaskResponse.Content.ReadFromJsonAsync<TodoItemResponse>(JsonOptions);
+        Assert.NotNull(user2Task);
+
+        var maliciousUpdateResponse = await _client.PutAsJsonAsync($"/api/TodoItems/{user2Task.Id}", new UpdateTodoItemRequest
+        {
+            Title = "User 2 legitimate task",
+            TodoListId = user1List.Id
+        });
+
+        // ASSERT: 400 Bad Request
+        Assert.Equal(HttpStatusCode.BadRequest, maliciousUpdateResponse.StatusCode);
+    }
 }
 
