@@ -274,7 +274,7 @@ Her task'ta ilgili BR-XXX numarası belirtilmiştir. Bir task'ı uygularken ilgi
 11. **EPIC 9** (İleri Seviye Özellikler & UX) — ✅ Tamamlandı
 12. **EPIC 10** (Refactor & Hardening) — ✅ Tamamlandı
 13. **EPIC 11** (Deployment & Production Hazırlığı) — ✅ Tamamlandı
-14. **EPIC 12** (Architecture & Clean Code Refactoring) — 📋 Backlog'da bekliyor
+14. **EPIC 12** (Architecture & Clean Code Refactoring) — ✅ Tamamlandı
 
 ---
 
@@ -335,9 +335,9 @@ Her task'ta ilgili BR-XXX numarası belirtilmiştir. Bir task'ı uygularken ilgi
 - [x] T12.2.2 — **CORS ve Ters Proxy Yapılandırması:** `AddAppCors(configuration)` ve `AddAppForwardedHeaders()` extension metotları ile ağ yapılandırmalarının ayrıştırılması
 
 ### User Story 12.3 — API Davranışları, Swagger ve Pipeline Orkestrasyonu
-- [ ] T12.3.1 — **Swagger & API Behavior İzolasyonu:** `AddSwaggerDocumentation()` ve RFC 7807 `InvalidModelStateResponseFactory` tanımlarının `ApiBehaviorExtensions.cs` içine taşınması
-- [ ] T12.3.2 — **Veritabanı Migration & Startup Orkestrasyonu:** `Program.cs` sonundaki 20 satırlık scope ve `MigrateAsync` bloğunun `ApplyDatabaseMigrationsAsync()` extension metoduna dönüştürülmesi
-- [ ] T12.3.3 — **`Program.cs` Sadeleştirmesi:** Tüm extension metotların `Program.cs` üzerinde çağrılarak ana dosyanın 287 satırdan 40-50 satırlık temiz bir orkestrasyona indirilmesi ve tüm testlerin (197 test) yeşil kaldığının doğrulanması
+- [x] T12.3.1 — **Swagger & API Behavior İzolasyonu:** `AddSwaggerDocumentation()` ve RFC 7807 `InvalidModelStateResponseFactory` tanımlarının `ApiBehaviorExtensions.cs` içine taşınması
+- [x] T12.3.2 — **Veritabanı Migration & Startup Orkestrasyonu:** `Program.cs` sonundaki 20 satırlık scope ve `MigrateAsync` bloğunun `ApplyDatabaseMigrationsAsync()` extension metoduna dönüştürülmesi
+- [x] T12.3.3 — **`Program.cs` Sadeleştirmesi:** Tüm extension metotların `Program.cs` üzerinde çağrılarak ana dosyanın 287 satırdan 40-50 satırlık temiz bir orkestrasyona indirilmesi ve tüm testlerin (197 test) yeşil kaldığının doğrulanması
 
 ---
 
