@@ -313,6 +313,7 @@ Filtrelenmiş ve sayfalanmış görev listesini getirir.
         "completedByUserId": null,
         "completedAt": null,
         "createdAt": "2026-09-24T06:00:00Z",
+        "updatedAt": null,
         "isDeleted": false,
         "deletedAt": null,
         "subTasks": [
@@ -321,7 +322,8 @@ Filtrelenmiş ve sayfalanmış görev listesini getirir.
             "taskId": "c1f7...",
             "title": "Login sayfası",
             "status": "Completed",
-            "createdAt": "2026-09-24T06:10:00Z"
+            "createdAt": "2026-09-24T06:10:00Z",
+            "updatedAt": null
           }
         ],
         "tags": [
@@ -537,7 +539,8 @@ Kullanıcının oluşturduğu tüm listeleri getirir.
         "name": "İş Projeleri",
         "colorCode": "#FF5733",
         "ownerId": "...",
-        "createdAt": "2026-09-20T12:00:00Z"
+        "createdAt": "2026-09-20T12:00:00Z",
+        "updatedAt": null
       }
     ]
   }

@@ -13,19 +13,19 @@
 | 1 | Reflected XSS — Şifre Sıfırlama Sayfası | 🔴 **Kritik** | Güvenlik | ✅ **Çözüldü (EPIC 4.5)** |
 | 2 | Hardcoded Secrets — JWT Key & DB Bağlantısı | 🔴 **Kritik** | Güvenlik | ✅ **Çözüldü (EPIC 8)** |
 | 3 | Pagination Yok — Tüm Liste Endpoint'leri | 🔴 **Yüksek** | Performans | ✅ **Çözüldü (EPIC 4.5)** |
-| 4 | Rate Limiting Yok — Auth Endpoint'leri | 🟠 **Yüksek** | Güvenlik | ⏳ **Bekliyor (EPIC 8)** |
+| 4 | Rate Limiting Yok — Auth Endpoint'leri | 🟠 **Yüksek** | Güvenlik | ✅ **Çözüldü (EPIC 8)** |
 | 5 | Hassas Bilgi Sızıntısı — Hata Mesajları | 🟠 **Yüksek** | Güvenlik | ✅ **Çözüldü (EPIC 4.5)** |
 | 6 | DTO Input Validation Eksik — Tüm DTO'lar | 🟠 **Yüksek** | Güvenlik | ✅ **Çözüldü (EPIC 4.5)** |
-| 7 | Timing Attack — Login Endpoint'i | 🟡 **Orta** | Güvenlik | ⏳ **Bekliyor (EPIC 8)** |
-| 8 | CORS Yapılandırması Yok | 🟡 **Orta** | Güvenlik | ⏳ **Bekliyor (EPIC 8)** |
-| 9 | Refresh Token Düz Metin Saklanıyor | 🟡 **Orta** | Güvenlik | ⏳ **Bekliyor (EPIC 8)** |
+| 7 | Timing Attack — Login Endpoint'i | 🟡 **Orta** | Güvenlik | ✅ **Çözüldü (EPIC 8)** |
+| 8 | CORS Yapılandırması Yok | 🟡 **Orta** | Güvenlik | ✅ **Çözüldü (EPIC 8)** |
+| 9 | Refresh Token Düz Metin Saklanıyor | 🟡 **Orta** | Güvenlik | ✅ **Çözüldü (EPIC 8)** |
 | 10 | Soft Delete Akışı Kırık (Dead Code) | 🟡 **Orta** | İş Mantığı | ✅ **Çözüldü (EPIC 4.5 & 6)** |
-| 11 | Şifre Sıfırlamada Refresh Token'lar İptal Edilmiyor | 🟡 **Orta** | Güvenlik | ⏳ **Bekliyor (EPIC 8)** |
-| 12 | Şifre Politikası Yok (Uzunluk / Karmaşıklık) | 🟡 **Orta** | Güvenlik | 🟡 **Kısmen Çözüldü (EPIC 4.5)** |
+| 11 | Şifre Sıfırlamada Refresh Token'lar İptal Edilmiyor | 🟡 **Orta** | Güvenlik | ✅ **Çözüldü (EPIC 8)** |
+| 12 | Şifre Politikası Yok (Uzunluk / Karmaşıklık) | 🟡 **Orta** | Güvenlik | ✅ **Çözüldü (EPIC 4.5 & 8)** |
 | 13 | Tag Aramada Non-SARGable Sorgu (`ToLower()`) | 🟡 **Orta** | Performans | ✅ **Çözüldü (EPIC 8)** |
 | 14 | Read Sorgularında `AsNoTracking()` Eksik | 🔵 **Düşük** | Performans | ✅ **Çözüldü (EPIC 8)** |
 | 15 | `nvarchar(max)` Kolon Boyutu Kontrolsüz | 🔵 **Düşük** | Performans | ✅ **Çözüldü (EPIC 8)** |
-| 16 | Security Headers Eksik (HSTS, CSP, X-Frame) | 🔵 **Düşük** | Güvenlik | ⏳ **Bekliyor (EPIC 8)** |
+| 16 | Security Headers Eksik (HSTS, CSP, X-Frame) | 🔵 **Düşük** | Güvenlik | ✅ **Çözüldü (EPIC 8 & 12)** |
 
 ---
 
@@ -95,8 +95,8 @@ value="{encodedToken}"
 ### 4. Rate Limiting Yok — Auth Endpoint'leri (Brute Force Riski)
 
 > [!NOTE]
-> **Durum:** ⏳ **Bekliyor (EPIC 8 — Task T8.1.1)**  
-> Login (5/dk), Register (3/dk), Forgot-Password (2/dk) endpoint'leri için ASP.NET Core RateLimiter middleware'i EPIC 8'de eklenecektir.
+> **Durum:** ✅ **Çözüldü (EPIC 8 — Task T8.1.1)**  
+> ASP.NET Core 10 yerleşik `Microsoft.AspNetCore.RateLimiting` middleware'i `RateLimiterServiceExtensions` sınıfında yapılandırıldı. `auth-login` (5 istek/dk), `auth-register` (3 istek/dk) ve `auth-forgot-password` (2 istek/dk) politikaları eklendi. Kota aşıldığında RFC 7807 uyumlu `429 Too Many Requests` yanıtı dönülmektedir.
 
 ---
 
@@ -114,7 +114,7 @@ value="{encodedToken}"
 
 > [!NOTE]
 > **Durum:** ✅ **Çözüldü (EPIC 4.5 — User Story 4.5.1)**  
-> `FluentValidation` ve `FluentValidation.AspNetCore` kütüphaneleri sisteme entegre edildi. Tüm DTO'lar için validatörler yazıldı. Şifre alanı için **BCrypt DoS saldırılarını engelleyen** min 8, max 128 karakter kuralı eklendi ve 35 yeni birim testi yazıldı.
+> `FluentValidation` ve `FluentValidation.AspNetCore` kütüphaneleri sisteme entegre edildi. Tüm DTO'lar için validatörler yazıldı. Şifre alanı için **BCrypt DoS saldırılarını engelleyen** min 8, max 128 karakter kuralı eklendi ve birim testleri yazıldı.
 
 **Eklenen Validatörler:**
 * `RegisterRequestValidator`, `LoginRequestValidator`, `ForgotPasswordRequestValidator`, `ResetPasswordRequestValidator`, `ChangePasswordRequestValidator`, `RefreshTokenRequestValidator`
@@ -129,24 +129,24 @@ value="{encodedToken}"
 ### 7. Timing Attack — Login Endpoint'inde E-posta Numaralandırma
 
 > [!NOTE]
-> **Durum:** ⏳ **Bekliyor (EPIC 8 — Task T8.1.4)**  
-> Kullanıcı bulunamadığında da dummy bir `BCrypt.Verify` çalıştırılarak yanıt sürelerinin eşitlenmesi EPIC 8'de yapılacaktır.
+> **Durum:** ✅ **Çözüldü (EPIC 8 — Task T8.1.4)**  
+> `AuthService.LoginAsync` metodunda kullanıcı veritabanında bulunamadığında dahi önceden üretilmiş dummy bir hash üzerinde `BCrypt.Verify` veya `BCrypt.EnhancedVerify` çalıştırılarak yanıt sürelerinin eşitlenmesi sağlandı. Böylece saldırgan yanıt gecikmesinden e-postanın sistemde kayıtlı olup olmadığını anlayamaz.
 
 ---
 
 ### 8. CORS Yapılandırması Yok
 
 > [!NOTE]
-> **Durum:** ⏳ **Bekliyor (EPIC 8 — Task T8.1.2)**  
-> İzin verilen origin, header ve metotları tanımlayan CORS politikası EPIC 8'de eklenecektir.
+> **Durum:** ✅ **Çözüldü (EPIC 8 — Task T8.1.2)**  
+> `CorsServiceExtensions` oluşturularak `AllowCredentials()`, izin verilen Frontend ve Mobil origin'ler, HTTP metotları (`GET, POST, PUT, DELETE, PATCH, OPTIONS`) ve header yapılandırması SignalR ile uyumlu şekilde tanımlandı.
 
 ---
 
 ### 9. Refresh Token Düz Metin Saklanıyor
 
 > [!NOTE]
-> **Durum:** ⏳ **Bekliyor (EPIC 8 — Task T8.1.7)**  
-> DB'de refresh token'ların SHA-256 hash olarak saklanması EPIC 8'de uygulanacaktır.
+> **Durum:** ✅ **Çözüldü (EPIC 8 — Task T8.1.7)**  
+> `RefreshToken` nesnesinin ham değeri istemciye iletilirken veritabanına `SHA-256` ile özetlenmiş `TokenHash` değeri kaydedilmektedir. Doğrulama yapılırken istemciden gelen token hash'lenerek DB'deki hash ile kıyaslanır. Veritabanı sızıntısında token'lar doğrudan ele geçirilemez.
 
 ---
 
@@ -161,16 +161,16 @@ value="{encodedToken}"
 ### 11. Şifre Sıfırlamada Aktif Oturumlar İptal Edilmiyor
 
 > [!NOTE]
-> **Durum:** ⏳ **Bekliyor (EPIC 8 — Task T8.1.6)**  
-> `ChangePasswordAsync`'te uygulanan tüm refresh token'ları iptal etme işlemi `ResetPasswordAsync` metoduna da eklenecektir.
+> **Durum:** ✅ **Çözüldü (EPIC 8 — Task T8.1.6)**  
+> Hem `ChangePasswordAsync` hem de `ResetPasswordAsync` akışlarında kullanıcının tüm aktif refresh token'ları (`RevokedAt = DateTime.UtcNow`) iptal edilmekte ve `SecurityStamp` değeri yenilenerek tüm eski JWT oturumları anında geçersiz kılınmaktadır.
 
 ---
 
 ### 12. Şifre Politikası Yok
 
 > [!NOTE]
-> **Durum:** 🟡 **Kısmen Çözüldü (EPIC 4.5) / ⏳ İleri Seviye Kurallar (EPIC 8 — Task T8.1.5)**  
-> EPIC 4.5'te min 8, max 128 karakter zorunluluğu getirildi. Büyük/küçük harf ve rakam/özel karakter regex kuralları EPIC 8'de eklenecektir.
+> **Durum:** ✅ **Çözüldü (EPIC 4.5 & EPIC 8 — Task T8.1.5)**  
+> `FluentValidation` kuralları ile: En az 8, en fazla 128 karakter, en az bir büyük harf, en az bir küçük harf, en az bir rakam ve en az bir özel karakter zorunluluğu regex doğrulamasıyla garanti altına alındı.
 
 ---
 
@@ -205,8 +205,8 @@ value="{encodedToken}"
 ### 16. Security Headers Eksik
 
 > [!NOTE]
-> **Durum:** ⏳ **Bekliyor (EPIC 8 — Task T8.1.3)**  
-> `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy`, `HSTS` başlıkları middleware olarak EPIC 8'de eklenecektir.
+> **Durum:** ✅ **Çözüldü (EPIC 8 & 12 — Task T8.1.3 & NetworkSecurityExtensions)**  
+> `NetworkSecurityExtensions` middleware katmanında `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Content-Security-Policy` ve `HSTS` başlıkları eklenmiştir.
 
 ---
 
@@ -215,14 +215,15 @@ value="{encodedToken}"
 | Öncelik | Aksiyon | Durum |
 |:---:|---|:---:|
 | 🔴 P0 | XSS düzeltmesi (HTML encode) | ✅ **Tamamlandı (EPIC 4.5)** |
-| 🔴 P0 | Secrets'ı `user-secrets` / env vars'a taşı | ⏳ **Sırada (EPIC 8)** |
+| 🔴 P0 | Secrets'ı `user-secrets` / env vars'a taşı | ✅ **Tamamlandı (EPIC 8)** |
 | 🟠 P1 | Tüm DTO'lara input validation ekle | ✅ **Tamamlandı (EPIC 4.5)** |
 | 🟠 P1 | ExceptionHandling'de 500 mesajlarını gizle | ✅ **Tamamlandı (EPIC 4.5)** |
 | 🟠 P1 | Pagination altyapısı kur | ✅ **Tamamlandı (EPIC 4.5)** |
-| 🟠 P1 | Rate Limiting middleware ekle | ⏳ **Sırada (EPIC 8)** |
-| 🟡 P2 | Login timing attack düzeltmesi | ⏳ **Sırada (EPIC 8)** |
-| 🟡 P2 | Soft-delete akışını düzelt | ✅ **Tamamlandı (EPIC 4.5)** |
-| 🟡 P2 | Şifre politikası uygula | 🟡 **Kısmen Tamamlandı (EPIC 4.5)** |
-| 🟡 P2 | ResetPassword'da refresh token'ları iptal et | ⏳ **Sırada (EPIC 8)** |
-| 🟡 P2 | CORS yapılandır | ⏳ **Sırada (EPIC 8)** |
-| 🔵 P3 | AsNoTracking, MaxLength, Security Headers | ⏳ **Sırada (EPIC 8)** |
+| 🟠 P1 | Rate Limiting middleware ekle | ✅ **Tamamlandı (EPIC 8)** |
+| 🟡 P2 | Login timing attack düzeltmesi | ✅ **Tamamlandı (EPIC 8)** |
+| 🟡 P2 | Soft-delete akışını düzelt | ✅ **Tamamlandı (EPIC 4.5 & 6)** |
+| 🟡 P2 | Şifre politikası uygula | ✅ **Tamamlandı (EPIC 4.5 & 8)** |
+| 🟡 P2 | ResetPassword'da refresh token'ları iptal et | ✅ **Tamamlandı (EPIC 8)** |
+| 🟡 P2 | CORS yapılandır | ✅ **Tamamlandı (EPIC 8)** |
+| 🔵 P3 | AsNoTracking, MaxLength, Security Headers | ✅ **Tamamlandı (EPIC 8 & 12)** |
+| 🏆 **SONUÇ** | **Tüm Güvenlik ve Performans Bulguları** | **✅ %100 Çözüldü (16/16)** |

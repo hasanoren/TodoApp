@@ -13,7 +13,7 @@ Bu doküman, `business-rules.md` içinde tanımlanan 30 iş kuralının tamamın
 | **SubTask** (BR-016..020) | 5 | ✅ %100 | ✅ %100 | ✅ Doğrulandı |
 | **Tag** (BR-021..024) | 4 | ✅ %100 | ✅ %100 | ✅ Doğrulandı |
 | **TaskShare & Transfer** (BR-025..030) | 6 | ✅ %100 | ✅ %100 | ✅ Doğrulandı |
-| **TOPLAM** | **30** | **✅ %100** | **✅ %100** | **✅ %100 Kapsam** |
+| **TOPLAM** | **30** | **✅ %100 (160 Test)** | **✅ %100 (37 Test)** | **✅ %100 Kapsam (197/197 Yeşil)** |
 
 ---
 
@@ -45,7 +45,7 @@ Bu doküman, `business-rules.md` içinde tanımlanan 30 iş kuralının tamamın
 | **BR-022** | Yeni bir Tag sadece Admin tarafından oluşturulabilir | Servis | `TagServiceTests.cs` | `CreateAsync_WhenUserIsNotAdmin_ThrowsForbiddenException` | ✅ |
 | **BR-023** | Kullanılmayan Tag silinmez, kalıcıdır | Mimari | `TagServiceTests.cs` | `GetAllAsync_ReturnsAllTags` | ✅ |
 | **BR-024** | Bir Tag bir Task'a yalnızca bir kez eklenebilir | DB / Hibrit | `TagServiceTests.cs` | `AssignTagToTodoItemAsync_WhenAlreadyAssigned_ThrowsValidationException` | ✅ |
-| **BR-025** | Paylaşılan kullanıcı görevi tamamlayabilir ve güncelleyebilir | Servis | `TaskAuthorizationServiceTests.cs` | `EnsureCanCompleteAsync_WhenOwnerOrShared_Succeeds`, `EnsureCanModifyAsync_WhenOwnerOrShared_Succeeds` | ✅ |
+| **BR-025** | Ana görevi güncelleme ve tamamlama yetkisi yalnızca Owner'a aittir | Servis | `TaskAuthorizationServiceTests.cs` | `EnsureCanModifyAsync_WhenOwner_Succeeds`, `EnsureCanModifyAsync_WhenSharedUser_ThrowsNotFoundException` | ✅ |
 | **BR-026** | Paylaşılan kullanıcı görevi ve alt görevi kesinlikle silemez | Servis | `TaskAuthorizationServiceTests.cs` | `EnsureCanDeleteAsync_WhenCalledBySharedUser_ThrowsNotFoundException`, `EnsureCanDeleteSubTaskAsync_WhenCalledBySharedUser_ThrowsNotFoundException` | ✅ |
 | **BR-027** | Var olmayan kullanıcıyla paylaşım → validasyon/not found hatası | Servis | `TaskShareServiceTests.cs` | `ShareAsync_WhenTargetUserNotFound_ThrowsNotFoundException` | ✅ |
 | **BR-028** | Paylaşılan kullanıcı kendi isteğiyle paylaşımdan çıkabilir | Servis | `TaskShareServiceTests.cs` | `LeaveShareAsync_WhenUserIsShared_LeavesTask` | ✅ |

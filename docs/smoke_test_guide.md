@@ -18,7 +18,7 @@ Bu rehber, TodoApp API'sinin yeni bir ortama dağıtıldığında veya ana özel
    ```powershell
    dotnet run --project src/TodoApp.Api
    ```
-4. **Swagger Arayüzünü Aç:** `https://localhost:5240/swagger`
+4. **Swagger Arayüzünü Aç:** `https://localhost:5240/swagger` (veya canlı ortam: `https://todoapp-api-gudhgje6bvfqg3ev.centralus-01.azurewebsites.net/swagger`)
 
 ---
 
@@ -100,19 +100,20 @@ Bu rehber, TodoApp API'sinin yeni bir ortama dağıtıldığında veya ana özel
 ### Adım 7: Paylaşılan Kullanıcının Yetki Kontrolü
 1. `collab@example.com` token'ı ile:
    * `GET /api/TodoItems/{TASK_ID}` → `200 OK` (Görebilmeli)
+   * `PATCH /api/subtasks/{SUBTASK_ID}/complete` → `200 OK` (Alt görevi tamamlayabilmeli)
    * `DELETE /api/subtasks/{SUBTASK_ID}` → `404 Not Found` (BR-020, BR-026: **Alt görevi silememeli!**)
-   * `PATCH /api/TodoItems/{TASK_ID}/complete` → `200 OK` (Ana görevi tamamlayabilmeli)
+   * `PATCH /api/TodoItems/{TASK_ID}/complete` → `404 Not Found` (BR-025: **Ana görevi tamamlayamaz, yalnızca sahip tamamlayabilir!**)
 
 ---
 
 ### Adım 8: Sahiplik Devir Akışı (Ownership Transfer)
 1. `owner@example.com` token'ı ile:
    * **İstek:** `POST /api/todoitems/{TASK_ID}/transfer-requests`
-   * **Gövde:** `{ "newOwnerEmail": "collab@example.com" }`
+   * **Gövde:** `{ "targetUserEmail": "collab@example.com" }`
    * **Beklenen Yanıt:** `200 OK` (Dönen `id` değerini `REQUEST_ID` olarak not edin).
 2. `collab@example.com` token'ı ile:
    * **İstek:** `GET /api/transfer-requests/pending` → Listede talebi görür.
-   * **İstek:** `POST /api/transfer-requests/{REQUEST_ID}/accept` → `200 OK` (Sahiplik geçer).
+   * **İstek:** `POST /api/transfer-requests/{REQUEST_ID}/accept` → `200 OK` (Sahiplik devredilir).
 
 ---
 

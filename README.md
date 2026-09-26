@@ -3,12 +3,12 @@
 ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)
 ![EF Core](https://img.shields.io/badge/EF%20Core-10.0-512BD4?logo=dotnet&logoColor=white)
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-2022-CC2927?logo=microsoftsqlserver&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-185%20passed-brightgreen?logo=checkmarx)
+![Tests](https://img.shields.io/badge/tests-197%20passed-brightgreen?logo=checkmarx)
 ![Architecture](https://img.shields.io/badge/architecture-Clean%20Architecture-blue)
 ![SignalR](https://img.shields.io/badge/SignalR-Real--time-blueviolet?logo=dotnet)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-> Kurumsal seviyede görev yönetimi REST API'si. Gerçek zamanlı bildirimler (SignalR), iki faktörlü kimlik doğrulama (TOTP), rol tabanlı yetkilendirme, kapsamlı güvenlik önlemleri ve **185+ otomatik test** ile production-ready backend altyapısı.
+> Kurumsal seviyede görev yönetimi REST API'si. Gerçek zamanlı bildirimler (SignalR), iki faktörlü kimlik doğrulama (TOTP), rol tabanlı yetkilendirme, kapsamlı güvenlik önlemleri ve **197 otomatik test** ile production-ready backend altyapısı.
 
 ---
 
@@ -339,12 +339,16 @@ Silinen görevlerin normal listede görünmemesi gerekiyor ama çöp kutusu endp
 
 | Doküman | Açıklama |
 |---|---|
-| [`docs/api-endpoints.md`](docs/api-endpoints.md) | Tüm endpoint'lerin request/response örnekleri |
-| [`docs/business-rules.md`](docs/business-rules.md) | 30 iş kuralı tanımı (BR-001 ~ BR-030) |
-| [`docs/security_audit.md`](docs/security_audit.md) | 16 maddelik güvenlik denetim raporu ve çözümler |
-| [`docs/test_matrix.md`](docs/test_matrix.md) | İş kuralı ↔ Test eşleşme matrisi |
-| [`docs/smoke_test_guide.md`](docs/smoke_test_guide.md) | Swagger ile manuel test senaryoları |
-| [`backlog.md`](backlog.md) | 10 Epic, 25+ User Story — proje yol haritası |
+| [`docs/api-endpoints.md`](docs/api-endpoints.md) | Tüm 48 REST & Realtime endpoint'inin request/response ve yetki şeması |
+| [`docs/business-rules.md`](docs/business-rules.md) | 30 iş kuralı tanımı (BR-001 ~ BR-030) ve veritabanı şeması |
+| [`docs/business-rules-layers.md`](docs/business-rules-layers.md) | İş kurallarının DB vs Servis vs Hibrit katman haritası |
+| [`docs/security_audit.md`](docs/security_audit.md) | 16 maddelik güvenlik & performans denetim raporu (tümü çözüldü) |
+| [`docs/test_matrix.md`](docs/test_matrix.md) | İş kuralı ↔ Test eşleşme matrisi (%100 yeşil) |
+| [`docs/smoke_test_guide.md`](docs/smoke_test_guide.md) | 10 adımlı Swagger ve canlı ortam uçtan uca doğrulama rehberi |
+| [`docs/FLUTTER_API_HANDBOOK.md`](docs/FLUTTER_API_HANDBOOK.md) | Flutter mobil geliştiriciler için mimari ve API el kitabı |
+| [`docs/flutter_integration_guide.md`](docs/flutter_integration_guide.md) | Azure App Service ve Flutter istemci kurulum rehberi |
+| [`docs/auth_workflows.md`](docs/auth_workflows.md) | Kimlik doğrulama ve görev akışlarının derinlemesine kod analizi |
+| [`backlog.md`](backlog.md) | Epic ve User Story yol haritası |
 
 ---
 
@@ -352,13 +356,13 @@ Silinen görevlerin normal listede görünmemesi gerekiyor ama çöp kutusu endp
 
 | Metrik | Değer |
 |---|---|
-| Toplam Epic | 10 |
-| Toplam User Story | 25+ |
+| Toplam Epic | 12 |
+| Toplam User Story | 30+ |
 | Toplam Task | 100+ |
-| Otomatik Test | 185 (151 Unit + 34 Integration) |
-| API Endpoint | 30+ |
+| Otomatik Test | 197 (160 Unit + 37 Integration) |
+| API Endpoint | 48 (REST + Real-time SignalR) |
 | İş Kuralı | 30 (BR-001 ~ BR-030) |
-| Güvenlik Denetim Maddesi | 16 (tümü giderildi) |
+| Güvenlik Denetim Maddesi | 16 (%100 giderildi) |
 | Katman Sayısı | 4 (Clean Architecture) |
 
 ---
