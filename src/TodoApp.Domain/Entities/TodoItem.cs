@@ -1,3 +1,4 @@
+using TodoApp.Domain.Common;
 using TodoApp.Domain.Enums;
 
 namespace TodoApp.Domain.Entities;
@@ -8,10 +9,8 @@ public enum TodoItemStatus
     Completed = 1
 }
 
-public class TodoItem
+public class TodoItem : BaseAuditableEntity
 {
-    public Guid Id { get; set; }
-
     // BR-006: Bir görev bir sahibe aittir, owner NOT NULL
     public Guid OwnerId { get; set; }
     public User Owner { get; set; } = null!;
@@ -35,8 +34,6 @@ public class TodoItem
     public Guid? DeletedByUserId { get; set; }
     public DateTime? DeletedAt { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
     // BR-007: Bir görev sıfır veya daha fazla alt göreve (SubTask) sahip olabilir
     public ICollection<SubTask> SubTasks { get; set; } = new List<SubTask>();
 
@@ -47,4 +44,3 @@ public class TodoItem
     public ICollection<TaskShare> TaskShares { get; set; } = new List<TaskShare>();
     public ICollection<TodoItemActivity> Activities { get; set; } = new List<TodoItemActivity>();
 }
-

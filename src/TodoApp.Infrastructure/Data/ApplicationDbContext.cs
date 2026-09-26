@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using TodoApp.Domain.Common;
 using TodoApp.Domain.Entities;
 
 namespace TodoApp.Infrastructure.Data;
@@ -21,6 +22,36 @@ public class ApplicationDbContext : DbContext
     public DbSet<TaskShare> TaskShares => Set<TaskShare>();
     public DbSet<OwnershipTransferRequest> OwnershipTransferRequests => Set<OwnershipTransferRequest>();
     public DbSet<TodoItemActivity> TodoItemActivities => Set<TodoItemActivity>();
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        UpdateAuditableEntities();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override int SaveChanges()
+    {
+        UpdateAuditableEntities();
+        return base.SaveChanges();
+    }
+
+    private void UpdateAuditableEntities()
+    {
+        var entries = ChangeTracker.Entries<IAuditableEntity>();
+
+        foreach (var entry in entries)
+        {
+            if (entry.State == EntityState.Added)
+            {
+                entry.Entity.CreatedAt = DateTime.UtcNow;
+            }
+
+            if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -15,7 +15,7 @@ public class TodoItemRepository : ITodoItemRepository
         _context = context;
     }
 
-    public async Task<TodoItem?> GetByIdAsync(Guid id, bool includeDeleted = false)
+    public async Task<TodoItem?> GetByIdAsync(Guid id, bool includeDeleted = false, CancellationToken cancellationToken = default)
     {
         var query = _context.TodoItems.AsQueryable();
 
@@ -31,18 +31,18 @@ public class TodoItemRepository : ITodoItemRepository
                 .ThenInclude(tit => tit.Tag)
             .Include(t => t.TaskShares)
                 .ThenInclude(ts => ts.User)
-            .FirstOrDefaultAsync(t => t.Id == id);
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
     }
 
-    public Task<(List<TodoItem> Items, int TotalCount)> GetAccessibleByUserAsync(Guid userId, int page, int pageSize)
+    public Task<(List<TodoItem> Items, int TotalCount)> GetAccessibleByUserAsync(Guid userId, int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        return GetAccessibleByUserAsync(userId, new TodoItemFilterDto { Page = page, PageSize = pageSize });
+        return GetAccessibleByUserAsync(userId, new TodoItemFilterDto { Page = page, PageSize = pageSize }, cancellationToken);
     }
 
     // BR-011: Soft-delete edilmiş görevler Global Query Filter ile otomatik filtrelenir
     // Liste görünümü için hafif sorgu (SubTasks dahil edilmez, sadece Tag'ler ve Paylaşılanlar dahil edilir)
     // T9.1.1: Dinamik filtreleme (FilterType, Search, Status, DueDate) ve dinamik sıralama
-    public async Task<(List<TodoItem> Items, int TotalCount)> GetAccessibleByUserAsync(Guid userId, TodoItemFilterDto filter)
+    public async Task<(List<TodoItem> Items, int TotalCount)> GetAccessibleByUserAsync(Guid userId, TodoItemFilterDto filter, CancellationToken cancellationToken = default)
     {
         var page = Math.Max(1, filter.Page);
         var pageSize = Math.Clamp(filter.PageSize, 1, PaginatedRequest.MaxPageSize);
@@ -93,7 +93,7 @@ public class TodoItemRepository : ITodoItemRepository
             query = query.Where(t => t.TodoListId == filter.TodoListId.Value);
         }
 
-        var totalCount = await query.CountAsync();
+        var totalCount = await query.CountAsync(cancellationToken);
 
         // 5. Dinamik Sıralama (SortBy, SortOrder)
         var isAsc = string.Equals(filter.SortOrder, "asc", StringComparison.OrdinalIgnoreCase);
@@ -115,20 +115,20 @@ public class TodoItemRepository : ITodoItemRepository
                 .ThenInclude(ts => ts.User)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return (items, totalCount);
     }
 
     // Çöp kutusu: sadece owner'ın soft-delete edilmiş görevleri (IgnoreQueryFilters ile filtre muafiyeti)
-    public async Task<(List<TodoItem> Items, int TotalCount)> GetDeletedByOwnerAsync(Guid userId, int page, int pageSize)
+    public async Task<(List<TodoItem> Items, int TotalCount)> GetDeletedByOwnerAsync(Guid userId, int page, int pageSize, CancellationToken cancellationToken = default)
     {
         var query = _context.TodoItems
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(t => t.OwnerId == userId && t.IsDeleted);
 
-        var totalCount = await query.CountAsync();
+        var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
             .Include(t => t.SubTasks)
@@ -137,14 +137,14 @@ public class TodoItemRepository : ITodoItemRepository
             .OrderByDescending(t => t.DeletedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return (items, totalCount);
     }
 
-    public async Task AddAsync(TodoItem todoItem)
+    public async Task AddAsync(TodoItem todoItem, CancellationToken cancellationToken = default)
     {
-        await _context.TodoItems.AddAsync(todoItem);
+        await _context.TodoItems.AddAsync(todoItem, cancellationToken);
     }
 
     // Hard delete (BR-008a)
@@ -153,9 +153,9 @@ public class TodoItemRepository : ITodoItemRepository
         _context.TodoItems.Remove(todoItem);
     }
 
-    public async Task SaveChangesAsync()
+    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }
 

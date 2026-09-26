@@ -4,15 +4,15 @@ namespace TodoApp.Application.Interfaces;
 
 public interface ITodoItemService
 {
-    Task<TodoItemResponse> CreateAsync(Guid userId, CreateTodoItemRequest request);
-    Task<TodoItemResponse> GetByIdAsync(Guid userId, Guid todoItemId);
-    Task<PaginatedResponse<TodoItemResponse>> GetAllAsync(Guid userId, TodoItemFilterDto filter);
-    Task<PaginatedResponse<TodoItemResponse>> GetAllAsync(Guid userId, PaginatedRequest request);
-    Task<TodoItemResponse> UpdateAsync(Guid userId, Guid todoItemId, UpdateTodoItemRequest request);
-    Task<TodoItemResponse> CompleteAsync(Guid userId, Guid todoItemId);
-    Task DeleteAsync(Guid userId, Guid todoItemId);
-    Task PermanentDeleteAsync(Guid userId, Guid todoItemId);
-    Task<TodoItemResponse> RestoreAsync(Guid userId, Guid todoItemId);
-    Task<PaginatedResponse<TodoItemResponse>> GetTrashAsync(Guid userId, PaginatedRequest request);
+    Task<TodoItemResponse> CreateAsync(Guid userId, CreateTodoItemRequest request, CancellationToken cancellationToken = default);
+    Task<TodoItemResponse> GetByIdAsync(Guid userId, Guid todoItemId, CancellationToken cancellationToken = default);
+    Task<PaginatedResponse<TodoItemResponse>> GetAllAsync(Guid userId, TodoItemFilterDto filter, CancellationToken cancellationToken = default);
+    Task<PaginatedResponse<TodoItemResponse>> GetAllAsync(Guid userId, PaginatedRequest request, CancellationToken cancellationToken = default);
+    Task<TodoItemResponse> UpdateAsync(Guid userId, Guid todoItemId, UpdateTodoItemRequest request, CancellationToken cancellationToken = default);
+    Task<TodoItemResponse> CompleteAsync(Guid userId, Guid todoItemId, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Guid userId, Guid todoItemId, CancellationToken cancellationToken = default);
+    Task PermanentDeleteAsync(Guid userId, Guid todoItemId, CancellationToken cancellationToken = default);
+    Task<TodoItemResponse> RestoreAsync(Guid userId, Guid todoItemId, CancellationToken cancellationToken = default);
+    Task<PaginatedResponse<TodoItemResponse>> GetTrashAsync(Guid userId, PaginatedRequest request, CancellationToken cancellationToken = default);
 }
 

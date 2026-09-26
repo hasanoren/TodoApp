@@ -117,7 +117,8 @@ public class SubTaskService : ISubTaskService
             TaskId = subTask.TaskId,
             Title = subTask.Title,
             Status = subTask.Status.ToString(),
-            CreatedAt = subTask.CreatedAt
+            CreatedAt = subTask.CreatedAt,
+            UpdatedAt = subTask.UpdatedAt
         };
     }
 }

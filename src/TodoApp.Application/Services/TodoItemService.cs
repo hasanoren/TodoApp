@@ -29,7 +29,7 @@ public class TodoItemService : ITodoItemService
         _logger = logger ?? NullLogger<TodoItemService>.Instance;
     }
 
-    public async Task<TodoItemResponse> CreateAsync(Guid userId, CreateTodoItemRequest request)
+    public async Task<TodoItemResponse> CreateAsync(Guid userId, CreateTodoItemRequest request, CancellationToken cancellationToken = default)
     {
         var todoItem = new TodoItem
         {
@@ -44,8 +44,8 @@ public class TodoItemService : ITodoItemService
             CreatedAt = DateTime.UtcNow
         };
 
-        await _todoItemRepository.AddAsync(todoItem);
-        await _todoItemRepository.SaveChangesAsync();
+        await _todoItemRepository.AddAsync(todoItem, cancellationToken);
+        await _todoItemRepository.SaveChangesAsync(cancellationToken);
 
         await _activityService.LogActivityAsync(todoItem.Id, userId, "Oluşturuldu", "Görev oluşturuldu.");
 
@@ -54,38 +54,38 @@ public class TodoItemService : ITodoItemService
         return MapToResponse(todoItem, userId);
     }
 
-    public async Task<TodoItemResponse> GetByIdAsync(Guid userId, Guid todoItemId)
+    public async Task<TodoItemResponse> GetByIdAsync(Guid userId, Guid todoItemId, CancellationToken cancellationToken = default)
     {
         var todoItem = await _taskAuthorizationService.EnsureCanReadAsync(todoItemId, userId);
         return MapToResponse(todoItem, userId);
     }
 
-    public async Task<PaginatedResponse<TodoItemResponse>> GetAllAsync(Guid userId, PaginatedRequest request)
+    public async Task<PaginatedResponse<TodoItemResponse>> GetAllAsync(Guid userId, PaginatedRequest request, CancellationToken cancellationToken = default)
     {
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, PaginatedRequest.MaxPageSize);
 
         // BR-011: IsDeleted=false filtresi repository'de uygulanıyor
-        var (items, totalCount) = await _todoItemRepository.GetAccessibleByUserAsync(userId, page, pageSize);
+        var (items, totalCount) = await _todoItemRepository.GetAccessibleByUserAsync(userId, page, pageSize, cancellationToken);
         var mappedItems = (items ?? new List<TodoItem>()).Select(item => MapToResponse(item, userId)).ToList();
 
         return new PaginatedResponse<TodoItemResponse>(mappedItems, totalCount, page, pageSize);
     }
 
-    public async Task<PaginatedResponse<TodoItemResponse>> GetAllAsync(Guid userId, TodoItemFilterDto filter)
+    public async Task<PaginatedResponse<TodoItemResponse>> GetAllAsync(Guid userId, TodoItemFilterDto filter, CancellationToken cancellationToken = default)
     {
         var page = Math.Max(1, filter.Page);
         var pageSize = Math.Clamp(filter.PageSize, 1, PaginatedRequest.MaxPageSize);
 
         // BR-011: IsDeleted=false filtresi repository'de uygulanıyor
-        var (items, totalCount) = await _todoItemRepository.GetAccessibleByUserAsync(userId, filter);
+        var (items, totalCount) = await _todoItemRepository.GetAccessibleByUserAsync(userId, filter, cancellationToken);
         var mappedItems = (items ?? new List<TodoItem>()).Select(item => MapToResponse(item, userId)).ToList();
 
         return new PaginatedResponse<TodoItemResponse>(mappedItems, totalCount, page, pageSize);
     }
 
     public async Task<TodoItemResponse> UpdateAsync(
-        Guid userId, Guid todoItemId, UpdateTodoItemRequest request)
+        Guid userId, Guid todoItemId, UpdateTodoItemRequest request, CancellationToken cancellationToken = default)
     {
         var todoItem = await _taskAuthorizationService.EnsureCanModifyAsync(todoItemId, userId);
 
@@ -95,7 +95,7 @@ public class TodoItemService : ITodoItemService
         todoItem.Priority = request.Priority;
         todoItem.TodoListId = request.TodoListId;
 
-        await _todoItemRepository.SaveChangesAsync();
+        await _todoItemRepository.SaveChangesAsync(cancellationToken);
 
         await _activityService.LogActivityAsync(todoItemId, userId, "Güncellendi", "Görevin detayları güncellendi.");
 
@@ -113,7 +113,7 @@ public class TodoItemService : ITodoItemService
         return MapToResponse(todoItem, userId);
     }
 
-    public async Task<TodoItemResponse> CompleteAsync(Guid userId, Guid todoItemId)
+    public async Task<TodoItemResponse> CompleteAsync(Guid userId, Guid todoItemId, CancellationToken cancellationToken = default)
     {
         var todoItem = await _taskAuthorizationService.EnsureCanCompleteAsync(todoItemId, userId);
 
@@ -132,7 +132,7 @@ public class TodoItemService : ITodoItemService
             await _activityService.LogActivityAsync(todoItemId, userId, "Tamamlandı", "Görev tamamlandı.");
         }
 
-        await _todoItemRepository.SaveChangesAsync();
+        await _todoItemRepository.SaveChangesAsync(cancellationToken);
 
         if (userId != todoItem.OwnerId)
         {
@@ -148,7 +148,7 @@ public class TodoItemService : ITodoItemService
         return MapToResponse(todoItem, userId);
     }
 
-    public async Task DeleteAsync(Guid userId, Guid todoItemId)
+    public async Task DeleteAsync(Guid userId, Guid todoItemId, CancellationToken cancellationToken = default)
     {
         // BR-008 & BR-026: Yalnızca görev sahibi silebilir! Paylaşılan kullanıcılar silemez
         var todoItem = await _taskAuthorizationService.EnsureCanDeleteAsync(todoItemId, userId);
@@ -158,14 +158,14 @@ public class TodoItemService : ITodoItemService
         todoItem.DeletedByUserId = userId;
         todoItem.DeletedAt = DateTime.UtcNow;
 
-        await _todoItemRepository.SaveChangesAsync();
+        await _todoItemRepository.SaveChangesAsync(cancellationToken);
 
         await _activityService.LogActivityAsync(todoItemId, userId, "Silindi", "Görev çöp kutusuna taşındı.");
 
         _logger.LogInformation("Görev çöp kutusuna taşındı (soft delete). TaskId: {TaskId}, DeletedByUserId: {UserId}", todoItemId, userId);
     }
 
-    public async Task PermanentDeleteAsync(Guid userId, Guid todoItemId)
+    public async Task PermanentDeleteAsync(Guid userId, Guid todoItemId, CancellationToken cancellationToken = default)
     {
         // BR-010, BR-029: Sadece owner kalıcı silebilir (çöp kutusundaki görevler için includeDeleted: true)
         var todoItem = await _taskAuthorizationService.EnsureOwnerAsync(todoItemId, userId, includeDeleted: true);
@@ -176,12 +176,12 @@ public class TodoItemService : ITodoItemService
         }
 
         _todoItemRepository.Delete(todoItem);
-        await _todoItemRepository.SaveChangesAsync();
+        await _todoItemRepository.SaveChangesAsync(cancellationToken);
 
         _logger.LogWarning("Görev kalıcı olarak silindi. TaskId: {TaskId}, OwnerId: {OwnerId}", todoItemId, userId);
     }
 
-    public async Task<TodoItemResponse> RestoreAsync(Guid userId, Guid todoItemId)
+    public async Task<TodoItemResponse> RestoreAsync(Guid userId, Guid todoItemId, CancellationToken cancellationToken = default)
     {
         // BR-010: Sadece owner restore edebilir (çöp kutusundaki görevler için includeDeleted: true)
         var todoItem = await _taskAuthorizationService.EnsureOwnerAsync(todoItemId, userId, includeDeleted: true);
@@ -203,7 +203,7 @@ public class TodoItemService : ITodoItemService
             _logger.LogWarning("Görev geri yüklendi ancak ait olduğu liste (ListId: {ListId}) silinmiş olduğu için görev ana havuza (Inbox) taşındı.", originalListId);
         }
 
-        await _todoItemRepository.SaveChangesAsync();
+        await _todoItemRepository.SaveChangesAsync(cancellationToken);
 
         await _activityService.LogActivityAsync(todoItemId, userId, "Geri Yüklendi", "Görev çöp kutusundan geri yüklendi.");
 
@@ -212,12 +212,12 @@ public class TodoItemService : ITodoItemService
         return MapToResponse(todoItem, userId);
     }
 
-    public async Task<PaginatedResponse<TodoItemResponse>> GetTrashAsync(Guid userId, PaginatedRequest request)
+    public async Task<PaginatedResponse<TodoItemResponse>> GetTrashAsync(Guid userId, PaginatedRequest request, CancellationToken cancellationToken = default)
     {
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, PaginatedRequest.MaxPageSize);
 
-        var (items, totalCount) = await _todoItemRepository.GetDeletedByOwnerAsync(userId, page, pageSize);
+        var (items, totalCount) = await _todoItemRepository.GetDeletedByOwnerAsync(userId, page, pageSize, cancellationToken);
         var mappedItems = items.Select(item => MapToResponse(item, userId)).ToList();
 
         return new PaginatedResponse<TodoItemResponse>(mappedItems, totalCount, page, pageSize);
@@ -239,6 +239,7 @@ public class TodoItemService : ITodoItemService
             CompletedByUserId = todoItem.CompletedByUserId,
             CompletedAt = todoItem.CompletedAt,
             CreatedAt = todoItem.CreatedAt,
+            UpdatedAt = todoItem.UpdatedAt,
             IsDeleted = todoItem.IsDeleted,
             DeletedAt = todoItem.DeletedAt,
             SubTasks = todoItem.SubTasks?.Select(st => new SubTaskResponse
@@ -247,7 +248,8 @@ public class TodoItemService : ITodoItemService
                 TaskId = st.TaskId,
                 Title = st.Title,
                 Status = st.Status.ToString(),
-                CreatedAt = st.CreatedAt
+                CreatedAt = st.CreatedAt,
+                UpdatedAt = st.UpdatedAt
             }).ToList() ?? new List<SubTaskResponse>(),
             Tags = todoItem.TodoItemTags?.Select(tit => new TagResponse
             {

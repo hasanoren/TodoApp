@@ -108,7 +108,8 @@ public class TodoListService : ITodoListService
             Name = list.Name,
             ColorCode = list.ColorCode,
             OwnerId = list.OwnerId,
-            CreatedAt = list.CreatedAt
+            CreatedAt = list.CreatedAt,
+            UpdatedAt = list.UpdatedAt
         };
     }
 }
