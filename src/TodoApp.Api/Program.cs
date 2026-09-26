@@ -79,127 +79,22 @@ builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddScoped<TodoApp.Application.Interfaces.INotificationService, TodoApp.Api.Services.SignalRNotificationService>();
 builder.Services.AddHostedService<TodoApp.Api.BackgroundServices.TodoReminderService>();
 builder.Services.AddSignalR();
-// ---- T8.2.2: Strongly-Typed Options Pattern ----
-builder.Services.Configure<TodoApp.Application.Settings.JwtSettings>(
-    builder.Configuration.GetSection(TodoApp.Application.Settings.JwtSettings.SectionName));
+// Options Pattern (Harici Servis Ayarları)
 builder.Services.Configure<TodoApp.Application.Settings.SmtpSettings>(
     builder.Configuration.GetSection(TodoApp.Application.Settings.SmtpSettings.SectionName));
 builder.Services.Configure<TodoApp.Application.Settings.PasswordResetSettings>(
     builder.Configuration.GetSection(TodoApp.Application.Settings.PasswordResetSettings.SectionName));
-builder.Services.Configure<TodoApp.Application.Settings.CorsSettings>(
-    builder.Configuration.GetSection(TodoApp.Application.Settings.CorsSettings.SectionName));
 
-var corsSettings = builder.Configuration
-    .GetSection(TodoApp.Application.Settings.CorsSettings.SectionName)
-    .Get<TodoApp.Application.Settings.CorsSettings>() ?? new TodoApp.Application.Settings.CorsSettings();
+// ---- T12.2.1: JWT Kimlik Doğrulama & Yetkilendirme ----
+builder.Services.AddJwtAuthentication(builder.Configuration, builder.Environment);
 
-const string corsPolicyName = "AllowFrontend";
+// ---- T12.2.2: Ağ Güvenliği, CORS & Ters Proxy Yapılandırması ----
+builder.Services.AddAppCors(builder.Configuration);
+builder.Services.AddAppForwardedHeaders();
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy(corsPolicyName, policy =>
-    {
-        var origins = corsSettings.AllowedOrigins.Length > 0
-            ? corsSettings.AllowedOrigins
-            : ["http://localhost:3000", "http://localhost:5173"];
-
-        policy.WithOrigins(origins)
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
-});
-
-var jwtSettings = builder.Configuration
-    .GetSection(TodoApp.Application.Settings.JwtSettings.SectionName)
-    .Get<TodoApp.Application.Settings.JwtSettings>()
-    ?? new TodoApp.Application.Settings.JwtSettings();
-
-if (string.IsNullOrWhiteSpace(jwtSettings.Key) || jwtSettings.Key.Length < 32)
-{
-    jwtSettings.Key = builder.Configuration["Jwt:Key"]
-        ?? builder.Configuration["Jwt__Key"]
-        ?? string.Empty;
-}
-
-if (string.IsNullOrWhiteSpace(jwtSettings.Key) || jwtSettings.Key.Length < 32)
-{
-    if (builder.Environment.IsDevelopment())
-    {
-        jwtSettings.Key = "super_secret_jwt_key_that_is_at_least_32_characters_long_12345!";
-    }
-    else
-    {
-        throw new InvalidOperationException("Üretim (Production) ortamında geçerli bir JWT Secret Key (en az 32 karakter) yapılandırılmalıdır.");
-    }
-}
-
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtSettings.Issuer,
-            ValidAudience = jwtSettings.Audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key))
-        };
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
-            {
-                var accessToken = context.Request.Query["access_token"];
-                var path = context.HttpContext.Request.Path;
-
-                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
-                {
-                    context.Token = accessToken;
-                }
-                return Task.CompletedTask;
-            },
-            OnTokenValidated = async context =>
-            {
-                // T10.2.2: JWT Token İptali / Güvenlik Damgası (SecurityStamp) Doğrulaması
-                var userRepo = context.HttpContext.RequestServices.GetRequiredService<TodoApp.Application.Interfaces.IUserRepository>();
-                var userIdClaim = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                    ?? context.Principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-
-                if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-                {
-                    context.Fail("Geçersiz token bilgisi.");
-                    return;
-                }
-
-                var user = await userRepo.GetByIdAsync(userId);
-                if (user == null)
-                {
-                    context.Fail("Kullanıcı bulunamadı.");
-                    return;
-                }
-
-                var tokenStamp = context.Principal?.FindFirst("security_stamp")?.Value;
-                if (string.IsNullOrEmpty(tokenStamp) || !Guid.TryParse(tokenStamp, out var stampGuid) || user.SecurityStamp != stampGuid)
-                {
-                    context.Fail("Oturum süresi doldu veya güvenlik bilgileri değişti.");
-                }
-            }
-        };
-    });
-
-builder.Services.AddAuthorization();
+// Hız Sınırlama & Sağlık Kontrolleri
 builder.Services.AddAppRateLimiting();
 builder.Services.AddAppHealthChecks();
-
-// T11.1.2: Ters Proxy (Nginx, Cloudflare, Traefik, AWS ALB) arkasında gerçek IP ve HTTPS protokolünü almak için
-builder.Services.Configure<ForwardedHeadersOptions>(options =>
-{
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownIPNetworks.Clear();
-    options.KnownProxies.Clear();
-});
 
 var app = builder.Build();
 
@@ -218,7 +113,7 @@ app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseSerilogRequestLogging();
 
 app.UseHttpsRedirection();
-app.UseCors(corsPolicyName);
+app.UseCors(NetworkSecurityExtensions.CorsPolicyName);
 
 // T10.2.6: Rate limiter kullanıcının kimliğine erişebilmesi için Authentication önce çalıştırılmalıdır
 app.UseAuthentication();

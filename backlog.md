@@ -331,8 +331,8 @@ Her task'ta ilgili BR-XXX numarası belirtilmiştir. Bir task'ı uygularken ilgi
 - [x] T12.1.2 — **Veritabanı Konfigürasyonunun İzolasyonu:** `Program.cs`'teki `AddDbContext` ve `EnableRetryOnFailure` bloğunun `AddDatabaseConfiguration(configuration)` extension metoduna taşınması
 
 ### User Story 12.2 — Güvenlik ve Kimlik Doğrulama Bloğunun İzolasyonu
-- [ ] T12.2.1 — **JWT & SecurityStamp Extension'ı:** `AddJwtAuthentication(configuration, environment)` extension metodunun oluşturulması; options binding, fail-fast anahtar doğrulaması, SignalR query string token çözümleme (`OnMessageReceived`) ve veritabanı `SecurityStamp` doğrulama (`OnTokenValidated`) bloklarının `JwtAuthenticationExtensions.cs` içine taşınması
-- [ ] T12.2.2 — **CORS ve Ters Proxy Yapılandırması:** `AddAppCors(configuration)` ve `AddAppForwardedHeaders()` extension metotları ile ağ yapılandırmalarının ayrıştırılması
+- [x] T12.2.1 — **JWT & SecurityStamp Extension'ı:** `AddJwtAuthentication(configuration, environment)` extension metodunun oluşturulması; options binding, fail-fast anahtar doğrulaması, SignalR query string token çözümleme (`OnMessageReceived`) ve veritabanı `SecurityStamp` doğrulama (`OnTokenValidated`) bloklarının `JwtAuthenticationExtensions.cs` içine taşınması
+- [x] T12.2.2 — **CORS ve Ters Proxy Yapılandırması:** `AddAppCors(configuration)` ve `AddAppForwardedHeaders()` extension metotları ile ağ yapılandırmalarının ayrıştırılması
 
 ### User Story 12.3 — API Davranışları, Swagger ve Pipeline Orkestrasyonu
 - [ ] T12.3.1 — **Swagger & API Behavior İzolasyonu:** `AddSwaggerDocumentation()` ve RFC 7807 `InvalidModelStateResponseFactory` tanımlarının `ApiBehaviorExtensions.cs` içine taşınması
