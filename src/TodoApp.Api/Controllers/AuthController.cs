@@ -56,6 +56,7 @@ public class AuthController : ControllerBase
         return Ok(new { message = "Eğer bu e-posta adresi kayıtlıysa, şifre sıfırlama bağlantısı gönderildi." });
     }
 
+    [EnableRateLimiting("auth-reset-password")]
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword(
         [FromBody] ResetPasswordRequest request)
@@ -81,6 +82,7 @@ public class AuthController : ControllerBase
         return NoContent();
     }
 
+    [EnableRateLimiting("auth-2fa-verify")]
     [HttpPost("login-2fa")]
     public async Task<IActionResult> LoginWithTwoFactor([FromBody] TwoFactorLoginRequest request)
     {

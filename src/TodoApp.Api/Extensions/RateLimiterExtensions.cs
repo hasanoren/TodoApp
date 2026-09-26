@@ -78,6 +78,8 @@ public static class RateLimiterExtensions
             options.AddIpPolicy("auth-login", permitLimit: 5);
             options.AddIpPolicy("auth-register", permitLimit: 3);
             options.AddIpPolicy("auth-forgot-password", permitLimit: 2);
+            options.AddIpPolicy("auth-2fa-verify", permitLimit: 5);
+            options.AddIpPolicy("auth-reset-password", permitLimit: 3);
         });
 
         return services;

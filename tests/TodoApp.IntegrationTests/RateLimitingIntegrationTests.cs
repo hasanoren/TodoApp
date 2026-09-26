@@ -163,5 +163,77 @@ public class RateLimitingIntegrationTests : IClassFixture<CustomWebApplicationFa
         Assert.NotNull(problem);
         Assert.Equal(429, problem.Status);
     }
+
+    [Fact]
+    public async Task ResetPassword_ExceedingLimit_Returns429TooManyRequests()
+    {
+        // ARRANGE: Limiti 3 olan reset-password endpoint'i için aynı IP'den 4 istek gönder
+        var client = _factory.CreateClient();
+        var clientIp = $"10.0.4.{Random.Shared.Next(10, 250)}";
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", clientIp);
+
+        var request = new ResetPasswordRequest
+        {
+            Token = "invalid-token",
+            NewPassword = "NewPassword123!"
+        };
+
+        // ACT: İlk 3 istek izin verilen limit dahilinde olmalı (400 Bad Request döner, 429 değil)
+        for (int i = 0; i < 3; i++)
+        {
+            var allowedResponse = await client.PostAsJsonAsync("/api/Auth/reset-password", request);
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, allowedResponse.StatusCode);
+        }
+
+        // 4. istek limiti (3/dk) aştığı için 429 dönmeli
+        var throttledResponse = await client.PostAsJsonAsync("/api/Auth/reset-password", request);
+
+        // ASSERT
+        Assert.Equal(HttpStatusCode.TooManyRequests, throttledResponse.StatusCode);
+        Assert.Equal("application/problem+json", throttledResponse.Content.Headers.ContentType?.MediaType);
+
+        var problem = await throttledResponse.Content.ReadFromJsonAsync<ProblemDetails>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        Assert.NotNull(problem);
+        Assert.Equal(429, problem.Status);
+        Assert.Equal("/api/Auth/reset-password", problem.Instance);
+    }
+
+    [Fact]
+    public async Task LoginWithTwoFactor_ExceedingLimit_Returns429TooManyRequests()
+    {
+        // ARRANGE: Limiti 5 olan login-2fa endpoint'i için aynı IP'den 6 istek gönder
+        var client = _factory.CreateClient();
+        var clientIp = $"10.0.5.{Random.Shared.Next(10, 250)}";
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", clientIp);
+
+        var request = new TwoFactorLoginRequest
+        {
+            TwoFactorToken = "dummy-token",
+            Code = "123456"
+        };
+
+        // ACT: İlk 5 istek izin verilen limit dahilinde olmalı (400 Bad Request döner, 429 değil)
+        for (int i = 0; i < 5; i++)
+        {
+            var allowedResponse = await client.PostAsJsonAsync("/api/Auth/login-2fa", request);
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, allowedResponse.StatusCode);
+        }
+
+        // 6. istek limiti (5/dk) aştığı için 429 dönmeli
+        var throttledResponse = await client.PostAsJsonAsync("/api/Auth/login-2fa", request);
+
+        // ASSERT
+        Assert.Equal(HttpStatusCode.TooManyRequests, throttledResponse.StatusCode);
+        Assert.Equal("application/problem+json", throttledResponse.Content.Headers.ContentType?.MediaType);
+
+        var problem = await throttledResponse.Content.ReadFromJsonAsync<ProblemDetails>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        Assert.NotNull(problem);
+        Assert.Equal(429, problem.Status);
+        Assert.Equal("/api/Auth/login-2fa", problem.Instance);
+    }
 }
 
