@@ -327,8 +327,8 @@ Her task'ta ilgili BR-XXX numarası belirtilmiştir. Bir task'ı uygularken ilgi
 > **Kaynak:** 25 Eylül 2026 tarihli kod kalitesi ve mimari analizi. `Program.cs` dosyasının "God File" olmaktan çıkarılıp kurumsal Extension Method Pattern ile modülerleştirilmesi (287 satırdan ~40 satıra indirilmesi).
 
 ### User Story 12.1 — Servis Kayıtlarının (Dependency Injection) Modülerleştirilmesi
-- [ ] T12.1.1 — **Katman Bazlı Servis Extension'ları:** `TodoApp.Application` içine `AddApplicationServices()` ve `TodoApp.Infrastructure` içine `AddInfrastructureServices()` extension metotlarının yazılarak `Program.cs`'teki 25+ satırlık `AddScoped` karmaşasının paketlenmesi
-- [ ] T12.1.2 — **Veritabanı Konfigürasyonunun İzolasyonu:** `Program.cs`'teki `AddDbContext` ve `EnableRetryOnFailure` bloğunun `AddDatabaseConfiguration(configuration)` extension metoduna taşınması
+- [x] T12.1.1 — **Katman Bazlı Servis Extension'ları:** `TodoApp.Application` içine `AddApplicationServices()` ve `TodoApp.Infrastructure` içine `AddInfrastructureServices()` extension metotlarının yazılarak `Program.cs`'teki 25+ satırlık `AddScoped` karmaşasının paketlenmesi
+- [x] T12.1.2 — **Veritabanı Konfigürasyonunun İzolasyonu:** `Program.cs`'teki `AddDbContext` ve `EnableRetryOnFailure` bloğunun `AddDatabaseConfiguration(configuration)` extension metoduna taşınması
 
 ### User Story 12.2 — Güvenlik ve Kimlik Doğrulama Bloğunun İzolasyonu
 - [ ] T12.2.1 — **JWT & SecurityStamp Extension'ı:** `AddJwtAuthentication(configuration, environment)` extension metodunun oluşturulması; options binding, fail-fast anahtar doğrulaması, SignalR query string token çözümleme (`OnMessageReceived`) ve veritabanı `SecurityStamp` doğrulama (`OnTokenValidated`) bloklarının `JwtAuthenticationExtensions.cs` içine taşınması

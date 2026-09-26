@@ -14,6 +14,8 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using TodoApp.Application.Validators;
 using TodoApp.Api.Extensions;
+using TodoApp.Application;
+using TodoApp.Infrastructure;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -69,48 +71,13 @@ builder.Services.AddSwaggerGen(options =>
 
 
 
-// ---- YENİ: DbContext'i DI container'a kaydet ----
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-{
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? builder.Configuration["ConnectionStrings:DefaultConnection"]
-        ?? builder.Configuration["ConnectionStrings__DefaultConnection"]
-        ?? builder.Configuration["DefaultConnection"];
+// ---- T12.1.1 & T12.1.2: Katman Bazlı Servis ve Altyapı Kayıtları ----
+builder.Services.AddApplicationServices();
+builder.Services.AddInfrastructureServices(builder.Configuration);
 
-    options.UseSqlServer(connectionString, sqlOptions =>
-    {
-        sqlOptions.EnableRetryOnFailure(
-            maxRetryCount: 5,
-            maxRetryDelay: TimeSpan.FromSeconds(30),
-            errorNumbersToAdd: null);
-    });
-});
-
-builder.Services.AddScoped<TodoApp.Application.Interfaces.IUserRepository, TodoApp.Infrastructure.Repositories.UserRepository>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.IRefreshTokenRepository, TodoApp.Infrastructure.Repositories.RefreshTokenRepository>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.IJwtTokenGenerator, TodoApp.Infrastructure.Services.JwtTokenGenerator>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.IPasswordHasher, TodoApp.Infrastructure.Services.BCryptPasswordHasher>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.IAuthService, TodoApp.Application.Services.AuthService>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.IEmailSender, TodoApp.Infrastructure.Services.EmailSender>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.IPasswordResetTokenRepository, TodoApp.Infrastructure.Repositories.PasswordResetTokenRepository>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoItemRepository, TodoApp.Infrastructure.Repositories.TodoItemRepository>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoListRepository, TodoApp.Infrastructure.Repositories.TodoListRepository>();
-
-builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoItemService, TodoApp.Application.Services.TodoItemService>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoListService, TodoApp.Application.Services.TodoListService>();
-builder.Services.AddHostedService<TodoApp.Api.BackgroundServices.TodoReminderService>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.ISubTaskRepository, TodoApp.Infrastructure.Repositories.SubTaskRepository>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.ISubTaskService, TodoApp.Application.Services.SubTaskService>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.ITagRepository, TodoApp.Infrastructure.Repositories.TagRepository>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.ITagService, TodoApp.Application.Services.TagService>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.ITaskShareRepository, TodoApp.Infrastructure.Repositories.TaskShareRepository>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.ITaskShareService, TodoApp.Application.Services.TaskShareService>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.ITaskAuthorizationService, TodoApp.Application.Services.TaskAuthorizationService>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.IOwnershipTransferRequestRepository, TodoApp.Infrastructure.Repositories.OwnershipTransferRequestRepository>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.ITaskTransferService, TodoApp.Application.Services.TaskTransferService>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoItemActivityRepository, TodoApp.Infrastructure.Repositories.TodoItemActivityRepository>();
-builder.Services.AddScoped<TodoApp.Application.Interfaces.ITodoItemActivityService, TodoApp.Application.Services.TodoItemActivityService>();
+// API Katmanına Özgü Bağımlılıklar
 builder.Services.AddScoped<TodoApp.Application.Interfaces.INotificationService, TodoApp.Api.Services.SignalRNotificationService>();
+builder.Services.AddHostedService<TodoApp.Api.BackgroundServices.TodoReminderService>();
 builder.Services.AddSignalR();
 // ---- T8.2.2: Strongly-Typed Options Pattern ----
 builder.Services.Configure<TodoApp.Application.Settings.JwtSettings>(
