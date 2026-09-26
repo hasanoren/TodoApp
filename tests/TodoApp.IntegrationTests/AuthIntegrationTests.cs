@@ -162,4 +162,88 @@ public class AuthIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         });
         Assert.Equal(HttpStatusCode.BadRequest, refreshResponse.StatusCode);
     }
+
+    [Fact]
+    public async Task TwoFactorAuthentication_FullFlow_Succeeds_And_EnforcesSecurity()
+    {
+        // 1. REGISTER
+        var email = $"2fa_flow_{Guid.NewGuid():N}@example.com";
+        var password = "Password123!";
+        var registerResponse = await _client.PostAsJsonAsync("/api/Auth/register", new RegisterRequest
+        {
+            Email = email,
+            Password = password
+        });
+        Assert.Equal(HttpStatusCode.OK, registerResponse.StatusCode);
+
+        var regAuth = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(regAuth);
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", regAuth.Token);
+
+        // 2. ENABLE 2FA
+        var enableResponse = await _client.PostAsync("/api/Auth/2fa/enable", null);
+        Assert.Equal(HttpStatusCode.OK, enableResponse.StatusCode);
+
+        var enableResult = await enableResponse.Content.ReadFromJsonAsync<TwoFactorEnableResponse>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(enableResult);
+        Assert.False(string.IsNullOrEmpty(enableResult.Secret));
+
+        // 3. VERIFY 2FA SETUP
+        var totp = new OtpNet.Totp(OtpNet.Base32Encoding.ToBytes(enableResult.Secret));
+        var setupCode = totp.ComputeTotp();
+
+        var verifyResponse = await _client.PostAsJsonAsync("/api/Auth/2fa/verify", new TwoFactorVerifyRequest
+        {
+            Code = setupCode
+        });
+        Assert.Equal(HttpStatusCode.OK, verifyResponse.StatusCode);
+
+        // 4. ATTEMPT LOGIN WITH PASSWORD -> REQUIRES 2FA & RETURNS TEMP TOKEN
+        _client.DefaultRequestHeaders.Authorization = null;
+        var loginResponse = await _client.PostAsJsonAsync("/api/Auth/login", new LoginRequest
+        {
+            Email = email,
+            Password = password
+        });
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+
+        var loginResult = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(loginResult);
+        Assert.True(loginResult.RequiresTwoFactor);
+        Assert.False(string.IsNullOrWhiteSpace(loginResult.TwoFactorToken));
+        Assert.True(string.IsNullOrEmpty(loginResult.Token)); // Parola sonrası tam token verilmemeli
+
+        // 5. SECURITY CHECK: TEMP TOKEN CANNOT BE USED AS ACCESS TOKEN
+        var tempClient = _factory.CreateClient();
+        tempClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginResult.TwoFactorToken);
+        var accessCheckResponse = await tempClient.GetAsync("/api/TodoLists");
+        Assert.Equal(HttpStatusCode.Unauthorized, accessCheckResponse.StatusCode);
+
+        // 6. SECURITY CHECK: INVALID TEMP TOKEN ON LOGIN-2FA IS REJECTED
+        var invalid2FaResponse = await _client.PostAsJsonAsync("/api/Auth/login-2fa", new TwoFactorLoginRequest
+        {
+            TwoFactorToken = "tampered-fake-token",
+            Code = totp.ComputeTotp()
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, invalid2FaResponse.StatusCode);
+
+        // 7. SUCCESSFUL 2FA LOGIN
+        var valid2FaResponse = await _client.PostAsJsonAsync("/api/Auth/login-2fa", new TwoFactorLoginRequest
+        {
+            TwoFactorToken = loginResult.TwoFactorToken,
+            Code = totp.ComputeTotp()
+        });
+        Assert.Equal(HttpStatusCode.OK, valid2FaResponse.StatusCode);
+
+        var finalAuth = await valid2FaResponse.Content.ReadFromJsonAsync<AuthResponse>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(finalAuth);
+        Assert.False(finalAuth.RequiresTwoFactor);
+        Assert.False(string.IsNullOrWhiteSpace(finalAuth.Token));
+        Assert.False(string.IsNullOrWhiteSpace(finalAuth.RefreshToken));
+    }
 }

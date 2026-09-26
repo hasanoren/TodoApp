@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using System.Security.Claims;
 using TodoApp.Application.Common;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces;
@@ -116,10 +117,13 @@ public class AuthService : IAuthService
         if (user.TwoFactorEnabled)
         {
             _logger.LogInformation("2FA gerekli. UserId: {UserId}", user.Id);
+            var (tempToken, _) = _jwtTokenGenerator.GenerateTwoFactorTempToken(user);
             return new AuthResponse
             {
                 RequiresTwoFactor = true,
-                UserId = user.Id
+                UserId = user.Id,
+                Email = user.Email,
+                TwoFactorToken = tempToken
             };
         }
 
@@ -348,10 +352,35 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> LoginWithTwoFactorAsync(TwoFactorLoginRequest request)
     {
-        var user = await _userRepository.GetByIdAsync(request.UserId);
+        if (string.IsNullOrWhiteSpace(request.TwoFactorToken))
+        {
+            throw new ValidationException("Geçersiz veya eksik 2FA oturum bilgisi.");
+        }
+
+        var principal = _jwtTokenGenerator.ValidateTwoFactorTempToken(request.TwoFactorToken);
+        if (principal == null)
+        {
+            throw new ValidationException("Geçersiz veya süresi dolmuş 2FA oturumu. Lütfen tekrar giriş yapın.");
+        }
+
+        var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                       ?? principal.FindFirst("sub")?.Value;
+
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            throw new ValidationException("Geçersiz 2FA oturumu.");
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId);
         if (user is null || !user.TwoFactorEnabled || string.IsNullOrEmpty(user.TwoFactorSecret))
         {
             throw new ValidationException("Geçersiz istek.");
+        }
+
+        var stampClaim = principal.FindFirst("security_stamp")?.Value;
+        if (!string.IsNullOrEmpty(stampClaim) && stampClaim != user.SecurityStamp.ToString())
+        {
+            throw new ValidationException("Oturum geçerliliğini yitirdi. Lütfen tekrar giriş yapın.");
         }
 
         var base32Bytes = Base32Encoding.ToBytes(user.TwoFactorSecret);
