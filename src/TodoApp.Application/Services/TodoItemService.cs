@@ -10,7 +10,7 @@ namespace TodoApp.Application.Services;
 public class TodoItemService : ITodoItemService
 {
     private readonly ITodoItemRepository _todoItemRepository;
-    private readonly ITodoListRepository? _todoListRepository;
+    private readonly ITodoListRepository _todoListRepository;
     private readonly ITaskAuthorizationService _taskAuthorizationService;
     private readonly INotificationService _notificationService;
     private readonly ITodoItemActivityService _activityService;
@@ -21,9 +21,11 @@ public class TodoItemService : ITodoItemService
         ITaskAuthorizationService taskAuthorizationService,
         INotificationService notificationService,
         ITodoItemActivityService activityService,
-        ITodoListRepository? todoListRepository = null,
+        ITodoListRepository todoListRepository,
         ILogger<TodoItemService>? logger = null)
     {
+        ArgumentNullException.ThrowIfNull(todoListRepository);
+
         _todoItemRepository = todoItemRepository;
         _taskAuthorizationService = taskAuthorizationService;
         _notificationService = notificationService;
@@ -34,7 +36,7 @@ public class TodoItemService : ITodoItemService
 
     public async Task<TodoItemResponse> CreateAsync(Guid userId, CreateTodoItemRequest request, CancellationToken cancellationToken = default)
     {
-        if (request.TodoListId.HasValue && _todoListRepository != null)
+        if (request.TodoListId.HasValue)
         {
             var list = await _todoListRepository.GetByIdAsync(request.TodoListId.Value);
             if (list == null || list.OwnerId != userId || list.IsDeleted)
@@ -101,7 +103,7 @@ public class TodoItemService : ITodoItemService
     {
         var todoItem = await _taskAuthorizationService.EnsureCanModifyAsync(todoItemId, userId);
 
-        if (request.TodoListId.HasValue && request.TodoListId != todoItem.TodoListId && _todoListRepository != null)
+        if (request.TodoListId.HasValue && request.TodoListId != todoItem.TodoListId)
         {
             var list = await _todoListRepository.GetByIdAsync(request.TodoListId.Value);
             if (list == null || list.OwnerId != todoItem.OwnerId || list.OwnerId != userId || list.IsDeleted)
