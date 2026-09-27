@@ -58,6 +58,7 @@ The project follows **Clean Architecture** with a strict inward dependency rule.
 
 - **JWT + Refresh Token Rotation** — Every refresh invalidates the previous token; stolen tokens cannot be reused indefinitely.
 - **Refresh Token Hashing** — Tokens are stored as SHA-256 hashes; a database leak does not expose usable tokens.
+- **SecurityStamp-based Token Revocation** — A `SecurityStamp` GUID is embedded in every JWT. Changing a password, disabling 2FA, or logging out rotates the stamp, instantly invalidating all previously issued tokens — even before they expire.
 - **Two-Factor Authentication (TOTP)** — Google Authenticator-compatible 2FA with enable/disable/verify flow.
 - **Rate Limiting** — Per-IP limits on sensitive endpoints (Login: 5/min, Register: 3/min, Forgot Password: 2/min).
 - **Security Headers** — HSTS, CSP, X-Frame-Options, X-Content-Type-Options applied globally.
@@ -200,6 +201,7 @@ A 16-point security audit was performed covering OWASP Top 10 and API-specific a
 | User Enumeration | Uniform responses + constant-time comparison | ✅ |
 | Privilege Escalation | Centralized `ITaskAuthorizationService` | ✅ |
 | DoS (payload) | MaxLength constraints + subtask cap (50) | ✅ |
+| Instant Token Revocation | `SecurityStamp` — changing password or logging out rotates the stamp, invalidating all existing JWTs immediately | ✅ |
 
 Full audit report: [`docs/security_audit.md`](docs/security_audit.md)
 
@@ -343,17 +345,6 @@ The API is deployed to **Azure App Service** via a GitHub Actions CI/CD pipeline
 - All secrets are managed as Azure App Service **Application Settings**.
 - The database is Azure SQL Server with EF Core migrations applied at startup.
 - Azure SignalR Service can be substituted for the built-in hub for horizontal scale-out.
-
----
-
-## Roadmap
-
-- [ ] Account Lockout — Protection against distributed brute-force attacks
-- [ ] JWT SecurityStamp — Immediate token invalidation on role/password change
-- [ ] Refresh Token via HttpOnly Cookie — Increased XSS resilience
-- [ ] Redis Backplane — SignalR scale-out across multiple instances
-- [ ] Background Job Queue — Decouple activity logging and notifications from the request thread
-- [ ] Automated Migration Pipeline — EF Core migrations applied automatically in CI/CD
 
 ---
 
