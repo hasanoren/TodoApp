@@ -143,7 +143,83 @@ Postman'de bir **Environment** oluşturup şu değişkenleri tanımlayın. İste
   }
   ```
 * **Beklenen Durum:** `204 NoContent`
-* *(Not: Teste devam edebilmek için aynı istekle parolayı tekrar `Password123!` yapabilirsiniz).*
+
+---
+
+### 2.6 [Güvenlik Testleri] Şifre Değişikliği Sonrası Token İptal Kontrolleri
+
+Şifre değiştirildiği anda sistemimiz iki katmanlı oturum iptal mekanizmasını tetikler:
+1. `user.SecurityStamp = Guid.NewGuid()` -> Mevcut tüm JWT access token'ları derhal geçersiz kılınır.
+2. `refreshToken.IsRevoked = true` -> Tüm açık cihazlardaki refresh token'lar kalıcı olarak iptal edilir.
+
+Aşağıdaki adımlarla bu güvenlik mekanizmalarını bizzat doğrulayabilirsiniz:
+
+#### 2.6.1 Eski Access Token İptal Kontrolü (SecurityStamp Doğrulaması)
+* **Açıklama:** Şifre değişmeden önce aldığınız `{{user1_token}}`'ın süresi (15 dk) henüz dolmamış olsa bile anında reddedildiğini doğrulayın.
+* **Metot & URL:** `GET {{baseUrl}}/api/TodoLists`
+* **Headers:** `Authorization: Bearer {{user1_token}}` *(Şifre değiştirmeden önceki eski token)*
+* **Beklenen Durum:** **`401 Unauthorized`**
+* **Beklenen Yanıt Başlığı:** `WWW-Authenticate: Bearer error="invalid_token", error_description="Oturum süresi doldu veya güvenlik bilgileri değişti."`
+* **Sonuç:** Eski JWT'nin anında geçersiz kılındığı ve korumalı endpoint'lere erişilemediği kanıtlanır.
+
+#### 2.6.2 Eski Refresh Token İptal Kontrolü (Revocation Doğrulaması)
+* **Açıklama:** Şifre değişimi öncesindeki `{{user1_refreshToken}}` ile yeni token üretilemeyeceğini test edin.
+* **Metot & URL:** `POST {{baseUrl}}/api/Auth/refresh`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "refreshToken": "{{user1_refreshToken}}"
+  }
+  ```
+* **Beklenen Durum:** **`400 Bad Request`**
+* **Beklenen Yanıt:**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+    "title": "Doğrulama Hatası",
+    "status": 400,
+    "detail": "Geçersiz veya süresi dolmuş refresh token."
+  }
+  ```
+
+#### 2.6.3 Eski Şifreyle Girişin Engellenmesi
+* **Metot & URL:** `POST {{baseUrl}}/api/Auth/login`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "email": "testuser1@example.com",
+    "password": "Password123!"
+  }
+  ```
+* **Beklenen Durum:** **`400 Bad Request`** (`"E-posta veya şifre hatalı."`)
+
+#### 2.6.4 Yeni Şifreyle Giriş & Yeni Oturum Başlatma
+* **Metot & URL:** `POST {{baseUrl}}/api/Auth/login`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "email": "testuser1@example.com",
+    "password": "NewPassword123!"
+  }
+  ```
+* **Beklenen Durum:** `200 OK`
+* **İşlem:** Dönen yanıttaki yeni `token` değerini `user1_token`, yeni `refreshToken` değerini `user1_refreshToken` ortam değişkenlerine kaydedin.
+* **Şifre Güncellemesi:** Postman ortam değişkeninizdeki `user1_password` değerini `NewPassword123!` olarak güncelleyin. *(Sonraki adımlarda bu yeni token ve güncel şifre kullanılacaktır).*
+
+---
+
+### 2.7 Oturumu Kapatma (Logout) & Refresh Token İptal Kontrolü
+* **Açıklama:** Kullanıcı "Çıkış Yap" dediğinde o oturuma ait refresh token kalıcı olarak iptal edilir.
+* **Metot & URL:** `POST {{baseUrl}}/api/Auth/logout`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "refreshToken": "{{user1_refreshToken}}"
+  }
+  ```
+* **Beklenen Durum:** `204 NoContent`
+* **Doğrulama (Revoke Kontrolü):** Aynı `{{user1_refreshToken}}` ile tekrar `POST {{baseUrl}}/api/Auth/refresh` çağrıldığında **`400 Bad Request`** ("Geçersiz veya süresi dolmuş refresh token.") döner.
+* **Hazırlık:** Test akışının sonraki adımlarına (Adım 3: 2FA) devam edebilmek için `POST {{baseUrl}}/api/Auth/login` ile (şifre: `NewPassword123!`) tekrar giriş yapıp güncel `user1_token` ve `user1_refreshToken` değerlerinizi Postman ortamınıza kaydedin.
 
 ---
 
@@ -179,7 +255,7 @@ Postman'de bir **Environment** oluşturup şu değişkenleri tanımlayın. İste
   ```json
   {
     "email": "testuser1@example.com",
-    "password": "Password123!"
+    "password": "{{user1_password}}" // Güncel şifre (NewPassword123!)
   }
   ```
 * **Beklenen Durum:** `200 OK`
@@ -467,7 +543,7 @@ Bu adım, **Aşama 2'de düzelttiğimiz SQL 547 Foreign Key çökmesinin** canl�
 * **Body (Raw JSON):**
   ```json
   {
-    "password": "Password123!"
+    "password": "{{user1_password}}"
   }
   ```
 * **Beklenen Durum:** **`204 NoContent`**
