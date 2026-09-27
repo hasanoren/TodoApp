@@ -1,387 +1,362 @@
-# 🗂️ TodoApp — Enterprise-Grade Task Management API
+# TodoApp — Task Management REST API
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)
 ![EF Core](https://img.shields.io/badge/EF%20Core-10.0-512BD4?logo=dotnet&logoColor=white)
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-2022-CC2927?logo=microsoftsqlserver&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-197%20passed-brightgreen?logo=checkmarx)
+![Tests](https://img.shields.io/badge/tests-211%20passed-brightgreen?logo=checkmarx)
 ![Architecture](https://img.shields.io/badge/architecture-Clean%20Architecture-blue)
 ![SignalR](https://img.shields.io/badge/SignalR-Real--time-blueviolet?logo=dotnet)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-> Kurumsal seviyede görev yönetimi REST API'si. Gerçek zamanlı bildirimler (SignalR), iki faktörlü kimlik doğrulama (TOTP), rol tabanlı yetkilendirme, kapsamlı güvenlik önlemleri ve **197 otomatik test** ile production-ready backend altyapısı.
+A production-ready ASP.NET Core 10 REST API for task management, featuring real-time notifications via SignalR, two-factor authentication (TOTP), role-based authorization, refresh token rotation, email-based password reset, and 211 automated tests.
+
+Live demo: `https://your-api.azurewebsites.net/swagger`
 
 ---
 
-## 📐 Mimari
+## Table of Contents
 
-Proje, **Clean Architecture** prensiplerine uygun olarak 4 katmandan oluşmaktadır. Domain katmanı sıfır dış bağımlılığa sahiptir; Application katmanı yalnızca interface'lere bağımlıdır. Bu sayede iş mantığı, veritabanı teknolojisinden bağımsız olarak test edilebilir.
+- [Architecture](#architecture)
+- [Features](#features)
+- [API Endpoints](#api-endpoints)
+- [Security](#security)
+- [Getting Started](#getting-started)
+- [Configuration](#configuration)
+- [Running Tests](#running-tests)
+- [Project Structure](#project-structure)
+- [Documentation](#documentation)
+- [Roadmap](#roadmap)
+- [License](#license)
 
-```mermaid
-flowchart TB
-    subgraph Client["🖥️ Client Layer"]
-        FE["Frontend / Mobile"]
-        SW["Swagger UI"]
-    end
+---
 
-    subgraph API["🌐 TodoApp.Api"]
-        direction TB
-        MW["Middleware Pipeline\n(Exception Handling, Security Headers,\nRate Limiting, CORS, Serilog)"]
-        CTRL["Controllers\n(Auth · TodoItems · SubTasks\nTags · Users · TodoLists\nTaskShares · TransferRequests)"]
-        HUB["SignalR Hub\n(Real-time Notifications)"]
-        BG["Background Services\n(Reminder Emails)"]
-    end
+## Architecture
 
-    subgraph APP["⚙️ TodoApp.Application"]
-        SVC["Services\n(Auth · TodoItem · SubTask · Tag\nTaskShare · Transfer · ActivityLog\nTodoList · Notification)"]
-        VALID["FluentValidation\n(Input Validation)"]
-        INT["Interfaces\n(Repository & Service Contracts)"]
-    end
+The project follows **Clean Architecture** with a strict inward dependency rule. The Domain layer has zero external dependencies; the Application layer depends only on abstractions. Business logic is fully decoupled from infrastructure concerns and can be tested in isolation.
 
-    subgraph DOM["🏛️ TodoApp.Domain"]
-        ENT["Entities\n(User · TodoItem · SubTask · Tag\nTaskShare · TodoList · TodoItemActivity\nRefreshToken · OwnershipTransferRequest)"]
-        EXC["Custom Exceptions\n(Validation · NotFound\nForbidden · Conflict)"]
-    end
-
-    subgraph INFRA["🗄️ TodoApp.Infrastructure"]
-        REPO["Repositories\n(EF Core Implementations)"]
-        DB[("SQL Server\n(Docker)")]
-        EXT["External Services\n(SMTP Email · JWT Generator\nBCrypt Password Hasher)"]
-    end
-
-    Client -->|HTTP / WebSocket| API
-    MW --> CTRL
-    CTRL --> SVC
-    HUB --> SVC
-    BG --> SVC
-    SVC --> INT
-    SVC --> ENT
-    INT -.->|implemented by| REPO
-    REPO --> DB
-    SVC --> EXT
+```
+┌─────────────────────────────────────────────────┐
+│  TodoApp.Api          Controllers · Middleware   │
+│                       SignalR Hub · Background   │
+├─────────────────────────────────────────────────┤
+│  TodoApp.Application  Services · DTOs           │
+│                       Validators · Interfaces   │
+├─────────────────────────────────────────────────┤
+│  TodoApp.Domain       Entities · Enums          │
+│                       Custom Exceptions         │
+├─────────────────────────────────────────────────┤
+│  TodoApp.Infrastructure  EF Core · Repositories │
+│                          External Services      │
+└─────────────────────────────────────────────────┘
 ```
 
 ---
 
-## ✨ Öne Çıkan Özellikler
+## Features
 
-### 🔐 Kimlik Doğrulama & Güvenlik
+### Authentication & Security
 
-| Özellik | Açıklama | Motivasyon |
-|---|---|---|
-| **JWT + Refresh Token Rotasyonu** | Her token kullanımında eski iptal, yeni üretiliyor | Çalınan token'ın süresiz kullanımını engeller |
-| **Refresh Token SHA-256 Hash** | DB'de düz metin yerine hash saklanıyor | Veritabanı sızıntısında token'lar ele geçirilemez |
-| **İki Faktörlü Doğrulama (TOTP)** | Google Authenticator uyumlu 2FA akışı | Şifre tek başına yeterli değil — endüstri standardı |
-| **Timing Attack Koruması** | Kullanıcı bulunamasa bile dummy hash hesaplanıyor | Yanıt süresinden email varlığı çıkarılamaz |
-| **Rate Limiting** | Login 5/dk, Register 3/dk, Forgot Password 2/dk | Brute-force ve credential stuffing önlemi |
-| **Security Headers** | HSTS, CSP, X-Frame-Options, X-Content-Type-Options | OWASP önerisi — tarayıcı seviyesinde koruma katmanı |
-| **User Enumeration Önleme** | Forgot password'da her koşulda aynı mesaj | Kayıtlı email'ler tespit edilemez |
-| **BCrypt DoS Koruması** | Şifre max 128 karakter sınırı | Aşırı uzun şifre ile hash hesaplama saldırısını engeller |
+- **JWT + Refresh Token Rotation** — Every refresh invalidates the previous token; stolen tokens cannot be reused indefinitely.
+- **Refresh Token Hashing** — Tokens are stored as SHA-256 hashes; a database leak does not expose usable tokens.
+- **Two-Factor Authentication (TOTP)** — Google Authenticator-compatible 2FA with enable/disable/verify flow.
+- **Rate Limiting** — Per-IP limits on sensitive endpoints (Login: 5/min, Register: 3/min, Forgot Password: 2/min).
+- **Security Headers** — HSTS, CSP, X-Frame-Options, X-Content-Type-Options applied globally.
+- **Timing Attack Prevention** — A dummy BCrypt hash is computed when a user is not found, preventing response-time-based user enumeration.
+- **BCrypt DoS Protection** — Password input is capped at 128 characters to prevent hash-computation denial-of-service.
+- **User Enumeration Prevention** — Forgot-password endpoint always returns the same message regardless of whether the email exists.
 
-### 🏗️ Mimari & Tasarım Kararları
+### Task Management
 
-| Karar | Neden? |
-|---|---|
-| **Clean Architecture (4 katman)** | Bağımlılık yönü dıştan içe. Domain sıfır bağımlılık. Test edilebilirlik maksimum. |
-| **DTO Pattern** | Kullanıcı girdisi doğrudan Entity'ye bağlanmaz — Mass Assignment (over-posting) saldırısı engellenir |
-| **Merkezi Yetki Servisi** (`ITaskAuthorizationService`) | Tüm yetki kontrolleri tek noktada — endpoint'te kontrol unutulma riski minimize |
-| **Options Pattern** | Magic string yerine `JwtSettings`, `SmtpSettings` gibi derleme zamanında doğrulanan tipli sınıflar |
-| **RFC 7807 ProblemDetails** | Tüm hata yanıtları IETF standardında — frontend geliştiriciler evrensel format bekler |
-| **Global Query Filter** | `IsDeleted` kontrolü EF Core seviyesinde otomatik — geliştirici unutması imkansız |
-| **Sargable Index Seek** | `ToLower()` sorguları kaldırıldı, veri girişinde normalizasyon — DB index'leri verimli kullanılır |
+- **Todo Lists** — Group tasks into named lists (e.g., Work, Personal, Project X).
+- **Todo Items** — Full CRUD with priority, due date, and status management.
+- **Subtasks** — Nested subtasks per item (capped at 50 to prevent abuse).
+- **Soft Delete & Trash** — Deleted tasks are recoverable; permanent deletion is a separate explicit action.
+- **Toggle Complete** — Tasks and subtasks can be toggled between complete and incomplete.
+- **Dynamic Filtering** — Filter by status, priority, date range, search term, share type, and sort order with server-side pagination.
+- **Activity Audit Log** — Every create, update, share, complete, and delete action on a task is recorded with a timestamp.
+- **Tags** — Admin-managed global tags assignable to any task.
 
-### ⚡ Gerçek Zamanlı & Otomasyon
+### Collaboration
 
-| Özellik | Açıklama |
-|---|---|
-| **SignalR WebSocket Hub** | Görev paylaşıldığında, güncellendiğinde veya tamamlandığında karşı tarafın ekranı canlı güncellenir |
-| **Background Reminder Service** | `DueDate`'i yaklaşan görevler için otomatik email hatırlatıcısı (`BackgroundService`) |
-| **Aktivite Denetim İzi (Audit Log)** | Görev üzerindeki tüm değişiklikler (oluşturma, güncelleme, paylaşma, tamamlama, silme) zaman çizelgesi olarak kaydedilir |
+- **Task Sharing** — Share tasks with other users by email; shared users can view and add subtasks.
+- **Leave Shared Task** — Shared users can remove themselves from a task at any time.
+- **Ownership Transfer** — Owners can initiate a transfer request; the recipient must accept, preserving data integrity.
 
-### 📋 Görev Yönetimi
+### Real-time & Automation
 
-| Özellik | Açıklama |
-|---|---|
-| **Alt Görevler (SubTasks)** | Her göreve max 50 alt görev eklenebilir (DoS koruması) |
-| **Görev Paylaşımı** | Email ile paylaşım, paylaşılan kullanıcının çıkabilmesi, sahiplik devri onay mekanizması |
-| **Etiketler (Tags)** | Admin tarafından yönetilen global etiketler, görevlere atanabilir |
-| **Listeler / Kategoriler** | Görevler "İş", "Kişisel", "Proje X" gibi listeler altında gruplanabilir |
-| **Dinamik Filtreleme & Arama** | Durum, öncelik, tarih aralığı, arama terimi, paylaşım tipi ve sıralama filtreleri |
-| **Soft Delete & Çöp Kutusu** | Silinen görevler geri yüklenebilir, kalıcı silme ayrı endpoint |
-| **Toggle Complete** | Tamamlanan görev tekrar açılabilir (SubTask ile tutarlı) |
+- **SignalR WebSocket Hub** — Connected clients receive instant push notifications when a task is shared, updated, or completed.
+- **Background Reminder Service** — A hosted `BackgroundService` sends email reminders for tasks with approaching due dates.
+- **Email Password Reset** — Secure, time-limited reset tokens delivered by email (MailKit / SMTP).
+
+### Cross-Cutting
+
+- **RFC 7807 Problem Details** — All error responses follow the IETF standard format.
+- **FluentValidation** — Declarative input validation with detailed field-level error messages.
+- **Serilog Structured Logging** — Configurable log levels per namespace, console sink with structured output.
+- **Options Pattern** — All settings (`JwtSettings`, `SmtpSettings`, etc.) are bound to typed classes and validated at startup.
+- **EF Core Global Query Filter** — `IsDeleted` is enforced at the ORM level; developers cannot accidentally expose soft-deleted records.
 
 ---
 
-## 📡 API Endpoints
+## API Endpoints
 
-**Toplam: 30+ endpoint** · Tüm korumalı endpoint'ler `Authorization: Bearer <JWT>` header'ı gerektirir.
+**48 total endpoints** (REST + SignalR). All protected endpoints require `Authorization: Bearer <JWT>`.
 
 <details>
-<summary><strong>🔐 Kimlik Doğrulama (Auth)</strong></summary>
+<summary><strong>Authentication — /api/auth</strong></summary>
 
-| Metod | Route | Açıklama | Yetki |
-|---|---|---|---|
-| `POST` | `/api/auth/register` | Kullanıcı kaydı | 🔓 Public |
-| `POST` | `/api/auth/login` | Giriş (JWT üretimi) | 🔓 Public |
-| `POST` | `/api/auth/login-2fa` | 2FA ile giriş | 🔓 Public |
-| `POST` | `/api/auth/refresh` | Token yenileme (rotasyon) | 🔓 Public |
-| `POST` | `/api/auth/logout` | Çıkış (token iptali) | 🔓 Public |
-| `POST` | `/api/auth/forgot-password` | Şifre sıfırlama emaili | 🔓 Public |
-| `POST` | `/api/auth/reset-password` | Şifre sıfırlama | 🔓 Public |
-| `PUT` | `/api/auth/change-password` | Şifre değiştirme | 🔒 Auth |
-| `POST` | `/api/auth/2fa/enable` | 2FA aktifleştir (QR kodu) | 🔒 Auth |
-| `POST` | `/api/auth/2fa/verify` | 2FA doğrulama | 🔒 Auth |
-| `POST` | `/api/auth/2fa/disable` | 2FA devre dışı bırak | 🔒 Auth |
+| Method | Route | Description | Auth |
+|--------|-------|-------------|------|
+| `POST` | `/api/auth/register` | Register a new user | Public |
+| `POST` | `/api/auth/login` | Authenticate and receive JWT + refresh token | Public |
+| `POST` | `/api/auth/login-2fa` | Complete login with TOTP code | Public |
+| `POST` | `/api/auth/refresh` | Rotate refresh token | Public |
+| `POST` | `/api/auth/logout` | Revoke refresh token | Public |
+| `POST` | `/api/auth/forgot-password` | Send password reset email | Public |
+| `POST` | `/api/auth/reset-password` | Reset password with token | Public |
+| `PUT`  | `/api/auth/change-password` | Change password (authenticated) | User |
+| `POST` | `/api/auth/2fa/enable` | Generate TOTP QR code | User |
+| `POST` | `/api/auth/2fa/verify` | Verify and activate 2FA | User |
+| `POST` | `/api/auth/2fa/disable` | Disable 2FA | User |
 
 </details>
 
 <details>
-<summary><strong>📝 Görev Yönetimi (TodoItems)</strong></summary>
+<summary><strong>Todo Items — /api/todoitems</strong></summary>
 
-| Metod | Route | Açıklama | Yetki |
-|---|---|---|---|
-| `GET` | `/api/todoitems` | Görevleri listele (filtreli, sayfalı) | 🔒 Auth |
-| `POST` | `/api/todoitems` | Yeni görev oluştur | 🔒 Auth |
-| `GET` | `/api/todoitems/{id}` | Görev detayı | 🔒 Owner/Shared |
-| `PUT` | `/api/todoitems/{id}` | Görev güncelle | 🔒 Owner |
-| `PATCH` | `/api/todoitems/{id}/complete` | Tamamla / Tekrar aç (Toggle) | 🔒 Owner |
-| `DELETE` | `/api/todoitems/{id}` | Soft delete | 🔒 Owner |
-| `DELETE` | `/api/todoitems/{id}/permanent` | Kalıcı silme | 🔒 Owner |
-| `POST` | `/api/todoitems/{id}/restore` | Çöp kutusundan geri yükle | 🔒 Owner |
-| `GET` | `/api/todoitems/trash` | Çöp kutusu | 🔒 Owner |
-| `GET` | `/api/todoitems/{id}/activities` | Aktivite geçmişi (Audit Log) | 🔒 Owner/Shared |
+| Method | Route | Description | Auth |
+|--------|-------|-------------|------|
+| `GET`    | `/api/todoitems` | List tasks (filtered, paginated) | User |
+| `POST`   | `/api/todoitems` | Create a task | User |
+| `GET`    | `/api/todoitems/{id}` | Get task detail | Owner / Shared |
+| `PUT`    | `/api/todoitems/{id}` | Update task | Owner |
+| `PATCH`  | `/api/todoitems/{id}/complete` | Toggle complete/incomplete | Owner |
+| `DELETE` | `/api/todoitems/{id}` | Soft delete (moves to trash) | Owner |
+| `DELETE` | `/api/todoitems/{id}/permanent` | Permanently delete | Owner |
+| `POST`   | `/api/todoitems/{id}/restore` | Restore from trash | Owner |
+| `GET`    | `/api/todoitems/trash` | List trashed tasks | User |
+| `GET`    | `/api/todoitems/{id}/activities` | Audit log for a task | Owner / Shared |
 
 </details>
 
 <details>
-<summary><strong>📎 Alt Görevler, Paylaşım, Etiketler, Listeler</strong></summary>
+<summary><strong>Subtasks, Sharing, Tags, Lists, Users</strong></summary>
 
-| Metod | Route | Açıklama | Yetki |
-|---|---|---|---|
-| `POST` | `/api/todoitems/{id}/subtasks` | Alt görev ekle | 🔒 Owner/Shared |
-| `PATCH` | `/api/subtasks/{id}/complete` | Alt görev tamamla/aç | 🔒 Owner/Shared |
-| `DELETE` | `/api/subtasks/{id}` | Alt görev sil | 🔒 Owner |
-| `POST` | `/api/todoitems/{id}/shares` | Görevi paylaş | 🔒 Owner |
-| `DELETE` | `/api/todoitems/{id}/shares/me` | Paylaşımdan çık | 🔒 Shared |
-| `POST` | `/api/todoitems/{id}/transfer-requests` | Sahiplik devri talebi | 🔒 Owner |
-| `POST` | `/api/tags` | Etiket oluştur | 🔒 Admin |
-| `GET` | `/api/tags` | Etiketleri listele | 🔒 Auth |
-| `CRUD` | `/api/todolists` | Liste yönetimi | 🔒 Auth |
-| `DELETE` | `/api/users/me` | Hesap silme | 🔒 Auth |
+| Method | Route | Description | Auth |
+|--------|-------|-------------|------|
+| `POST`   | `/api/todoitems/{id}/subtasks` | Add subtask | Owner / Shared |
+| `PATCH`  | `/api/subtasks/{id}/complete` | Toggle subtask | Owner / Shared |
+| `DELETE` | `/api/subtasks/{id}` | Delete subtask | Owner |
+| `POST`   | `/api/todoitems/{id}/shares` | Share task by email | Owner |
+| `DELETE` | `/api/todoitems/{id}/shares/me` | Leave shared task | Shared User |
+| `POST`   | `/api/todoitems/{id}/transfer-requests` | Initiate ownership transfer | Owner |
+| `POST`   | `/api/transfer-requests/{id}/accept` | Accept ownership transfer | Recipient |
+| `POST`   | `/api/transfer-requests/{id}/reject` | Reject ownership transfer | Recipient |
+| `GET`    | `/api/tags` | List tags | User |
+| `POST`   | `/api/tags` | Create tag | Admin |
+| `PUT`    | `/api/tags/{id}` | Update tag | Admin |
+| `DELETE` | `/api/tags/{id}` | Delete tag | Admin |
+| `GET`    | `/api/todolists` | List todo lists | User |
+| `POST`   | `/api/todolists` | Create list | User |
+| `PUT`    | `/api/todolists/{id}` | Update list | Owner |
+| `DELETE` | `/api/todolists/{id}` | Delete list | Owner |
+| `GET`    | `/api/users/me` | Get current user profile | User |
+| `DELETE` | `/api/users/me` | Delete account (cascade cleanup) | User |
 
 </details>
 
-> 📖 Tüm endpoint'lerin detaylı request/response örnekleri için: [`docs/api-endpoints.md`](docs/api-endpoints.md)
+<details>
+<summary><strong>Real-time — SignalR Hub</strong></summary>
+
+| Connection | Route | Auth |
+|------------|-------|------|
+| WebSocket | `/hubs/todo` | `?access_token=<JWT>` query parameter |
+
+**Server → Client Events:**
+
+| Event | Payload | Trigger |
+|-------|---------|---------|
+| `ReceiveNotification` | `(string title, string message)` | Task shared, updated, or completed |
+
+</details>
+
+> Full request/response schemas with examples: [`docs/api-endpoints.md`](docs/api-endpoints.md)
 
 ---
 
-## 🛡️ Güvenlik Mimarisi
+## Security
 
-Proje geliştirme sürecinde **16 maddelik bir güvenlik denetimi** yapılmış ve tüm bulgular giderilmiştir (bkz. [`docs/security_audit.md`](docs/security_audit.md)).
+A 16-point security audit was performed covering OWASP Top 10 and API-specific attack vectors. All findings are addressed.
 
-```mermaid
-flowchart LR
-    A["🌐 HTTP Request"] --> B["Rate Limiting\n(IP bazlı)"]
-    B --> C["Security Headers\n(HSTS, CSP, X-Frame)"]
-    C --> D["FluentValidation\n(Input Sanitization)"]
-    D --> E["JWT Authentication\n(+ 2FA TOTP)"]
-    E --> F["Authorization Service\n(Merkezi Yetki)"]
-    F --> G["DTO → Entity Mapping\n(Mass Assignment Koruması)"]
-    G --> H["EF Core\n(Parametrik SQL)"]
-    H --> I["🗄️ SQL Server"]
-```
+| Attack Vector | Mitigation | Status |
+|---------------|------------|--------|
+| SQL Injection | EF Core parameterized queries | ✅ |
+| XSS | HtmlEncode + stateless Bearer auth (no cookies) | ✅ |
+| CSRF | Bearer token auth (no session cookies) | ✅ |
+| Mass Assignment | Strict DTO pattern — entities never bound directly from input | ✅ |
+| Brute Force | Rate limiting per IP | ✅ |
+| Timing Attack | Dummy BCrypt hash on unknown user | ✅ |
+| Token Theft | Refresh token rotation + SHA-256 storage | ✅ |
+| User Enumeration | Uniform responses + constant-time comparison | ✅ |
+| Privilege Escalation | Centralized `ITaskAuthorizationService` | ✅ |
+| DoS (payload) | MaxLength constraints + subtask cap (50) | ✅ |
 
-| Saldırı Vektörü | Koruma Yöntemi | Durum |
-|---|---|---|
-| SQL Injection | EF Core parametrik sorgular | ✅ |
-| XSS | `HtmlEncode` + REST API (Cookie-less) | ✅ |
-| CSRF | Bearer Token (Cookie-less auth) | ✅ |
-| Mass Assignment | DTO pattern | ✅ |
-| Brute Force | Rate Limiting + (Account Lockout planlandı) | ✅ |
-| Timing Attack | Dummy BCrypt hash | ✅ |
-| Token Theft | Refresh token rotasyonu + SHA-256 hash | ✅ |
-| User Enumeration | Sabit mesaj + sabit süre | ✅ |
-| Privilege Escalation | `ITaskAuthorizationService` merkezi yetki | ✅ |
-| Information Disclosure | Production'da genel hata mesajı | ✅ |
-| DoS (Payload) | MaxLength + SubTask limit (50) | ✅ |
+Full audit report: [`docs/security_audit.md`](docs/security_audit.md)
 
 ---
 
-## ✅ Test Kapsamı
+## Getting Started
 
-```
-📦 185 Otomatik Test
-├── 151 Unit Test (Birim Testi)
-│   ├── 30 İş Kuralı Testi (BR-001 ~ BR-030)
-│   ├── 35 FluentValidation Testi
-│   ├── 20 Authorization Yetki Kombinasyonu
-│   ├── 10 Sahiplik Devri Senaryosu
-│   └── 56 Servis & Edge Case Testi
-└── 34 Integration Test (Entegrasyon Testi)
-    └── Gerçek DB ile Cascade/Constraint Doğrulama
-```
+### Prerequisites
 
-- **Test Matrisi:** Tüm 30 iş kuralının hangi testle kapsandığı → [`docs/test_matrix.md`](docs/test_matrix.md)
-- **Smoke Test Rehberi:** Swagger ile manuel test senaryoları → [`docs/smoke_test_guide.md`](docs/smoke_test_guide.md)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for local SQL Server)
+
+### Setup
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/your-username/TodoApp.git
+cd TodoApp
+
+# 2. Start SQL Server via Docker
+docker-compose up -d
+
+# 3. Configure secrets
+cd src/TodoApp.Api
+dotnet user-secrets set "Jwt:Key" "your-secret-key-at-least-32-characters-long"
+dotnet user-secrets set "Jwt:Issuer" "TodoApp"
+dotnet user-secrets set "Jwt:Audience" "TodoAppUser"
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,1433;Database=TodoAppDb;User Id=sa;Password=YourPassword123!;TrustServerCertificate=True"
+dotnet user-secrets set "Smtp:Host" "smtp.example.com"
+dotnet user-secrets set "Smtp:Port" "587"
+dotnet user-secrets set "Smtp:Username" "noreply@example.com"
+dotnet user-secrets set "Smtp:Password" "your-smtp-password"
+dotnet user-secrets set "Smtp:FromEmail" "noreply@example.com"
+dotnet user-secrets set "Smtp:FromName" "TodoApp"
+
+# 4. Apply database migrations
+dotnet ef database update --project ../TodoApp.Infrastructure
+
+# 5. Run the API
+dotnet run
+
+# Swagger UI → https://localhost:5001/swagger
+```
 
 ---
 
-## 🗂️ Proje Yapısı
+## Configuration
+
+Copy `src/TodoApp.Api/appsettings.Example.json` to `appsettings.json` (or use environment variables / User Secrets for production).
+
+| Section | Key | Description |
+|---------|-----|-------------|
+| `ConnectionStrings` | `DefaultConnection` | SQL Server connection string |
+| `Jwt` | `Key` | HMAC-SHA256 signing key (min 32 chars) |
+| `Jwt` | `Issuer` / `Audience` | Token issuer and audience identifiers |
+| `Jwt` | `ExpiryMinutes` | Access token lifetime (default: 60) |
+| `Jwt` | `RefreshTokenExpiryDays` | Refresh token lifetime (default: 7) |
+| `PasswordReset` | `ExpiryMinutes` | Reset token validity window (default: 60) |
+| `PasswordReset` | `ResetUrl` | Base URL for the reset link sent by email |
+| `Smtp` | `Host` / `Port` | SMTP server address and port |
+| `Smtp` | `FromEmail` / `FromName` | Sender identity |
+| `Smtp` | `Username` / `Password` | SMTP credentials |
+| `Cors` | `AllowedOrigins` | Allowed frontend origins |
+
+> For production deployments on Azure App Service, configure all secrets as **Application Settings** (environment variables). No secrets should be committed to source control.
+
+---
+
+## Running Tests
+
+```bash
+dotnet test
+```
+
+Expected output:
+
+```
+Passed! - Failed: 0, Passed: 169 - TodoApp.Application.Tests.dll
+Passed! - Failed: 0, Passed:  42 - TodoApp.IntegrationTests.dll
+```
+
+**Test breakdown:**
+
+| Suite | Count | Scope |
+|-------|-------|-------|
+| Unit Tests | 169 | Services, validators, authorization logic, business rules (BR-001 ~ BR-030) |
+| Integration Tests | 42 | Real database — cascade delete, FK constraints, end-to-end flows |
+| **Total** | **211** | |
+
+- Business rule → test mapping: [`docs/test_matrix.md`](docs/test_matrix.md)
+- Manual end-to-end test guide: [`docs/postman_manual_testing_flow.md`](docs/postman_manual_testing_flow.md)
+
+---
+
+## Project Structure
 
 ```
 TodoApp/
 ├── src/
-│   ├── TodoApp.Api/                  # Controllers, Middleware, Hubs, Background Services
-│   ├── TodoApp.Application/          # Services, DTOs, Interfaces, Validators, Settings
-│   ├── TodoApp.Domain/               # Entities, Enums, Custom Exceptions
-│   └── TodoApp.Infrastructure/       # EF Core DbContext, Repositories, External Services
+│   ├── TodoApp.Api/                  # Entry point — Controllers, Middleware, Hubs, Background Services
+│   ├── TodoApp.Application/          # Business logic — Services, DTOs, Interfaces, Validators
+│   ├── TodoApp.Domain/               # Core — Entities, Enums, Custom Exceptions
+│   └── TodoApp.Infrastructure/       # Data access — EF Core DbContext, Repositories, Email, JWT
 ├── tests/
-│   ├── TodoApp.Application.Tests/    # 151 Unit Tests (xUnit + Moq)
-│   └── TodoApp.IntegrationTests/     # 34 Integration Tests (Real DB)
+│   ├── TodoApp.Application.Tests/    # 169 unit tests (xUnit + Moq)
+│   └── TodoApp.IntegrationTests/     # 42 integration tests (real SQL Server)
 ├── docs/
-│   ├── api-endpoints.md              # Detaylı API dokümantasyonu
-│   ├── business-rules.md             # 30 iş kuralı (BR-001 ~ BR-030)
-│   ├── business-rules-layers.md      # Kuralların katman dağılımı
-│   ├── security_audit.md             # 16 maddelik güvenlik denetim raporu
-│   ├── test_matrix.md                # İş kuralı → Test eşleşme matrisi
-│   ├── smoke_test_guide.md           # Manuel API test rehberi
-│   ├── auth_workflows.md             # Kimlik doğrulama akış dokümanı
-│   └── response_formats_guide.md     # API yanıt format standartları
-├── backlog.md                        # 10 Epic, 25+ User Story, 100+ Task
-├── docker-compose.yml                # SQL Server container
-└── README.md                         # ← Bu dosya
+│   ├── api-endpoints.md              # Full endpoint reference with request/response examples
+│   ├── business-rules.md             # 30 domain business rules (BR-001 ~ BR-030)
+│   ├── business-rules-layers.md      # Rule enforcement layer mapping
+│   ├── security_audit.md             # 16-point security audit report
+│   ├── test_matrix.md                # Business rule ↔ test coverage matrix
+│   ├── smoke_test_guide.md           # Swagger-based end-to-end verification guide
+│   ├── postman_manual_testing_flow.md# Step-by-step Postman testing flow (all features)
+│   ├── auth_workflows.md             # Authentication flow deep-dive
+│   ├── FLUTTER_API_HANDBOOK.md       # Flutter client integration handbook
+│   └── flutter_integration_guide.md  # Azure + Flutter setup guide
+├── docker-compose.yml                # SQL Server container for local development
+└── README.md
 ```
 
 ---
 
-## 🚀 Kurulum
+## Documentation
 
-### Gereksinimler
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (SQL Server için)
-
-### Adımlar
-
-```bash
-# 1. Repoyu klonla
-git clone https://github.com/kullanici/TodoApp.git
-cd TodoApp
-
-# 2. SQL Server'ı Docker ile başlat
-docker-compose up -d
-
-# 3. User Secrets yapılandır (gizli bilgileri güvenle sakla)
-cd TodoApp/src/TodoApp.Api
-dotnet user-secrets set "Jwt:Key" "min-32-karakter-guclu-bir-anahtar-buraya"
-dotnet user-secrets set "Jwt:Issuer" "TodoApp"
-dotnet user-secrets set "Jwt:Audience" "TodoApp"
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,1433;Database=TodoAppDb;User Id=sa;Password=YourPassword123!;TrustServerCertificate=True"
-
-# 4. Veritabanını oluştur (migration'ları uygula)
-dotnet ef database update
-
-# 5. Uygulamayı çalıştır
-dotnet run
-
-# 6. Swagger UI'ı aç
-# → https://localhost:5001/swagger
-```
-
-### Testleri Çalıştır
-
-```bash
-cd TodoApp
-dotnet test
-
-# Beklenen çıktı:
-# Başarılı! - Başarısız: 0, Başarılı: 151 - TodoApp.Application.Tests.dll
-# Başarılı! - Başarısız: 0, Başarılı:  34 - TodoApp.IntegrationTests.dll
-```
+| Document | Description |
+|----------|-------------|
+| [`docs/api-endpoints.md`](docs/api-endpoints.md) | Complete REST & SignalR endpoint reference |
+| [`docs/business-rules.md`](docs/business-rules.md) | 30 business rules with database schema |
+| [`docs/security_audit.md`](docs/security_audit.md) | 16-point security & performance audit |
+| [`docs/postman_manual_testing_flow.md`](docs/postman_manual_testing_flow.md) | Full Postman test flow covering all features |
+| [`docs/test_matrix.md`](docs/test_matrix.md) | Business rule → automated test traceability |
+| [`docs/FLUTTER_API_HANDBOOK.md`](docs/FLUTTER_API_HANDBOOK.md) | Architecture and API handbook for Flutter clients |
 
 ---
 
-## 🔧 Teknik Zorluklar & Çözümler
+## Deployment
 
-<details>
-<summary><strong>SQL Server Multiple Cascade Paths</strong></summary>
+The API is deployed to **Azure App Service** via a GitHub Actions CI/CD pipeline. The workflow builds, tests, and publishes the application on every push to `main`.
 
-`TodoItem` tablosundaki 3 FK (`OwnerId`, `CompletedByUserId`, `DeletedByUserId`) aynı `Users` tablosuna işaret ettiğinde SQL Server birden fazla CASCADE yoluna izin vermez.
-
-**Çözüm:** `OwnerId` → CASCADE, diğerleri → `NoAction` + kullanıcı silinirken manuel temizleme (`ExecuteUpdate` ile null'a çekme).
-</details>
-
-<details>
-<summary><strong>SignalR JWT Token Taşıma</strong></summary>
-
-WebSocket API'si HTTP header set etmeye izin vermediği için JWT token'ı `Authorization` header'ında gönderilemez.
-
-**Çözüm:** JWT middleware'inin `OnMessageReceived` event'inde, `/hubs` rotası için `?access_token=` query parametresinden token okunması.
-</details>
-
-<details>
-<summary><strong>BackgroundService ile Scoped Servisler</strong></summary>
-
-`BackgroundService` singleton olarak çalışırken scoped servisler (`DbContext`, `IEmailSender`) doğrudan enjekte edilemez.
-
-**Çözüm:** `IServiceScopeFactory` ile her iterasyonda yeni scope oluşturulması.
-</details>
-
-<details>
-<summary><strong>Soft Delete & Global Query Filter</strong></summary>
-
-Silinen görevlerin normal listede görünmemesi gerekiyor ama çöp kutusu endpoint'inde erişilebilir olmalı.
-
-**Çözüm:** EF Core `HasQueryFilter(t => !t.IsDeleted)` ile otomatik filtreleme; çöp kutusu sorgularında `.IgnoreQueryFilters()` ile bypass.
-</details>
+- All secrets are managed as Azure App Service **Application Settings**.
+- The database is Azure SQL Server with EF Core migrations applied at startup.
+- Azure SignalR Service can be substituted for the built-in hub for horizontal scale-out.
 
 ---
 
-## 📖 Dokümantasyon
+## Roadmap
 
-| Doküman | Açıklama |
-|---|---|
-| [`docs/api-endpoints.md`](docs/api-endpoints.md) | Tüm 48 REST & Realtime endpoint'inin request/response ve yetki şeması |
-| [`docs/business-rules.md`](docs/business-rules.md) | 30 iş kuralı tanımı (BR-001 ~ BR-030) ve veritabanı şeması |
-| [`docs/business-rules-layers.md`](docs/business-rules-layers.md) | İş kurallarının DB vs Servis vs Hibrit katman haritası |
-| [`docs/security_audit.md`](docs/security_audit.md) | 16 maddelik güvenlik & performans denetim raporu (tümü çözüldü) |
-| [`docs/postman_manual_testing_flow.md`](docs/postman_manual_testing_flow.md) | Postman ile 11 adımlı uçtan uca özellik ve güvenlik test akış rehberi |
-| [`docs/test_matrix.md`](docs/test_matrix.md) | İş kuralı ↔ Test eşleşme matrisi (%100 yeşil) |
-| [`docs/smoke_test_guide.md`](docs/smoke_test_guide.md) | 10 adımlı Swagger ve canlı ortam uçtan uca doğrulama rehberi |
-| [`docs/FLUTTER_API_HANDBOOK.md`](docs/FLUTTER_API_HANDBOOK.md) | Flutter mobil geliştiriciler için mimari ve API el kitabı |
-| [`docs/flutter_integration_guide.md`](docs/flutter_integration_guide.md) | Azure App Service ve Flutter istemci kurulum rehberi |
-| [`docs/auth_workflows.md`](docs/auth_workflows.md) | Kimlik doğrulama ve görev akışlarının derinlemesine kod analizi |
-| [`backlog.md`](backlog.md) | Epic ve User Story yol haritası |
+- [ ] Account Lockout — Protection against distributed brute-force attacks
+- [ ] JWT SecurityStamp — Immediate token invalidation on role/password change
+- [ ] Refresh Token via HttpOnly Cookie — Increased XSS resilience
+- [ ] Redis Backplane — SignalR scale-out across multiple instances
+- [ ] Background Job Queue — Decouple activity logging and notifications from the request thread
+- [ ] Automated Migration Pipeline — EF Core migrations applied automatically in CI/CD
 
 ---
 
-## 📊 Proje İstatistikleri
+## License
 
-| Metrik | Değer |
-|---|---|
-| Toplam Epic | 12 |
-| Toplam User Story | 30+ |
-| Toplam Task | 100+ |
-| Otomatik Test | 211 (169 Unit + 42 Integration) |
-| API Endpoint | 48 (REST + Real-time SignalR) |
-| İş Kuralı | 30 (BR-001 ~ BR-030) |
-| Güvenlik Denetim Maddesi | 16 (%100 giderildi) |
-| Katman Sayısı | 4 (Clean Architecture) |
-
----
-
-## 🛣️ Yol Haritası (Roadmap)
-
-- [ ] Account Lockout (Hesap Kilitleme) — Botnet brute-force koruması
-- [ ] JWT SecurityStamp — Anlık token iptali
-- [ ] Refresh Token HttpOnly Cookie — XSS dayanıklılığı
-- [ ] Background Queue — Aktivite log ve bildirim asenkronizasyonu
-- [ ] Redis Backplane — SignalR scale-out desteği
-- [ ] Otomatik Migration Pipeline — CI/CD entegrasyonu
-
-> Detaylı yol haritası: [`backlog.md` → EPIC 10](backlog.md)
-
----
-
-## 📄 Lisans
-
-Bu proje [MIT](LICENSE) lisansı ile lisanslanmıştır.
-
+This project is licensed under the [MIT License](LICENSE).
