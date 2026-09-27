@@ -321,6 +321,72 @@ public class DatabaseCascadeIntegrationTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task DeleteUser_WhenUserHasTodoListWithTasks_DeletesSuccessfully()
+    {
+        // ARRANGE
+        var userA = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "user-list-owner@example.com",
+            PasswordHash = "hash",
+            Role = UserRole.User,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var userB = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "user-b-task-owner@example.com",
+            PasswordHash = "hash",
+            Role = UserRole.User,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var list = new TodoList
+        {
+            Id = Guid.NewGuid(),
+            OwnerId = userA.Id,
+            Name = "User A List",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        // Task is owned by User B, but points to User A's TodoList!
+        var task = new TodoItem
+        {
+            Id = Guid.NewGuid(),
+            OwnerId = userB.Id,
+            Title = "Task in User A List owned by User B",
+            Status = TodoItemStatus.Open,
+            TodoListId = list.Id,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        using (var context = CreateContext())
+        {
+            context.Users.AddRange(userA, userB);
+            context.TodoLists.Add(list);
+            context.TodoItems.Add(task);
+            await context.SaveChangesAsync();
+        }
+
+        // ACT
+        using (var context = CreateContext())
+        {
+            var userRepo = new TodoApp.Infrastructure.Repositories.UserRepository(context);
+            var userToDelete = await context.Users.FindAsync(userA.Id);
+            Assert.NotNull(userToDelete);
+            await userRepo.DeleteAsync(userToDelete);
+        }
+
+        // ASSERT
+        using (var context = CreateContext())
+        {
+            var deletedUser = await context.Users.FindAsync(userA.Id);
+            Assert.Null(deletedUser);
+        }
+    }
+
     public void Dispose()
     {
         _connection.Dispose();

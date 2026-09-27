@@ -508,128 +508,381 @@ Aşağıdaki adımlarla bu güvenlik mekanizmalarını bizzat doğrulayabilirsin
 * **Beklenen Durum:** **`404 Not Found`** (`"Görev bulunamadı."`)
 
 ### 7.3 Görevin Alt Görevlerini Listeleme
+* **Açıklama:** Ana göreve ait tüm alt görevleri listeler.
 * **Metot & URL:** `GET {{baseUrl}}/api/todoitems/{{taskId}}/subtasks`
 * **Headers:** `Authorization: Bearer {{user1_token}}`
 * **Beklenen Durum:** `200 OK`
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "data": [
+      {
+        "id": "{{subTaskId}}",
+        "taskId": "{{taskId}}",
+        "title": "SSL/TLS sertifika süresini doğrula",
+        "status": 0,
+        "isCompleted": false,
+        "createdAt": "2026-09-27T10:00:00Z"
+      }
+    ]
+  }
+  ```
 
 ### 7.4 Alt Görevi Tamamlama (Toggle)
+* **Açıklama:** Alt görevi tamamlandı (`status: 1`) durumuna getirir. Tekrar çalıştırılırsa açık (`status: 0`) yapar.
 * **Metot & URL:** `PATCH {{baseUrl}}/api/subtasks/{{subTaskId}}/complete`
 * **Headers:** `Authorization: Bearer {{user1_token}}`
-* **Beklenen Durum:** `200 OK` (`status: 1` Completed)
+* **Body:** Gövde yok (Empty)
+* **Beklenen Durum:** `200 OK`
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "id": "{{subTaskId}}",
+    "taskId": "{{taskId}}",
+    "title": "SSL/TLS sertifika süresini doğrula",
+    "status": 1,
+    "isCompleted": true,
+    "createdAt": "2026-09-27T10:00:00Z"
+  }
+  ```
 
-### 7.5 İkinci Bir Alt Görev Oluşturup Silme (SubTask Delete)
-1. Yeni bir alt görev ekleyin: `POST {{baseUrl}}/api/todoitems/{{taskId}}/subtasks` (Title: "Geçici Alt Görev") -> `subTaskId_temp`
-2. Alt görevi silin:
-   * **Metot & URL:** `DELETE {{baseUrl}}/api/subtasks/{{subTaskId_temp}}`
-   * **Headers:** `Authorization: Bearer {{user1_token}}`
-   * **Beklenen Durum:** `204 NoContent`
+### 7.5 Geçici İkinci Bir Alt Görev Oluşturma
+* **Açıklama:** Silme testini (7.6) gerçekleştirmek için geçici bir alt görev oluşturun.
+* **Metot & URL:** `POST {{baseUrl}}/api/todoitems/{{taskId}}/subtasks`
+* **Headers:**  
+  * `Authorization: Bearer {{user1_token}}`
+  * `Content-Type: application/json`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "title": "Geçici Alt Görev (Silme Testi)"
+  }
+  ```
+* **Beklenen Durum:** `201 Created`
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "taskId": "c1a85f64-5717-4562-b3fc-2c963f66afa6",
+    "title": "Geçici Alt Görev (Silme Testi)",
+    "status": 0,
+    "isCompleted": false,
+    "createdAt": "2026-09-27T10:00:00Z"
+  }
+  ```
+* **İşlem:** Dönen yanıttaki `id` değerini `subTaskId_temp` olarak Postman değişkenlerine kaydedin.
+
+### 7.6 Alt Görevi Silme (SubTask Delete)
+* **Açıklama:** Oluşturulan geçici alt görevin sistemden silindiğini doğrulayın.
+* **Metot & URL:** `DELETE {{baseUrl}}/api/subtasks/{{subTaskId_temp}}`
+* **Headers:** `Authorization: Bearer {{user1_token}}`
+* **Body:** Gövde yok (Empty)
+* **Beklenen Durum:** `204 NoContent`
+* **Beklenen Yanıt:** *(Gövde boştur)*
 
 ---
 
 ## Adım 8: Görev Paylaşımı & İşbirliği (Task Sharing)
 
 ### 8.1 Görevi User 2 ile Paylaşma
+* **Açıklama:** Görev sahibi User 1, görevi User 2 ile paylaşır.
 * **Metot & URL:** `POST {{baseUrl}}/api/todoitems/{{taskId}}/shares`
-* **Headers:** `Authorization: Bearer {{user1_token}}`
+* **Headers:**  
+  * `Authorization: Bearer {{user1_token}}`
+  * `Content-Type: application/json`
 * **Body (Raw JSON):**
   ```json
   {
     "email": "testuser2@example.com"
   }
   ```
-* **Beklenen Durum:** `200 OK` (`"Görev başarıyla paylaşıldı."`)
+* **Beklenen Durum:** `200 OK`
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "message": "Görev başarıyla paylaşıldı."
+  }
+  ```
 
 #### 8.1.1 [Validasyon Testi] Görevi Kendisiyle Paylaşma Engeli
+* **Açıklama:** Görev sahibinin görevi kendi e-posta adresiyle paylaşması engellenmelidir (BR-004).
 * **Metot & URL:** `POST {{baseUrl}}/api/todoitems/{{taskId}}/shares`
-* **Headers:** `Authorization: Bearer {{user1_token}}`
-* **Body (Raw JSON):** `{ "email": "testuser1@example.com" }`
-* **Beklenen Durum:** **`400 Bad Request`** (`"Kullanıcı görevi kendisiyle paylaşamaz."`)
+* **Headers:**  
+  * `Authorization: Bearer {{user1_token}}`
+  * `Content-Type: application/json`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "email": "testuser1@example.com"
+  }
+  ```
+* **Beklenen Durum:** **`400 Bad Request`**
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+    "title": "Doğrulama Hatası",
+    "status": 400,
+    "detail": "Kullanıcı görevi kendisiyle paylaşamaz.",
+    "instance": "/api/todoitems/{{taskId}}/shares"
+  }
+  ```
 
-#### 8.1.2 [Validasyon Testi] Var Olmayan Kullanıcıyla Paylaşım
+#### 8.1.2 [Validasyon Testi] Var Olmayan Kullanıcıyla Paylaşım Engeli
+* **Açıklama:** Sistemde kayıtlı olmayan bir kullanıcıya görev paylaşılamaz (BR-027).
 * **Metot & URL:** `POST {{baseUrl}}/api/todoitems/{{taskId}}/shares`
-* **Headers:** `Authorization: Bearer {{user1_token}}`
-* **Body (Raw JSON):** `{ "email": "ghost_nonexistent@example.com" }`
-* **Beklenen Durum:** **`404 Not Found`** (`"Paylaşılmak istenen kullanıcı bulunamadı."`)
+* **Headers:**  
+  * `Authorization: Bearer {{user1_token}}`
+  * `Content-Type: application/json`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "email": "ghost_nonexistent_user@example.com"
+  }
+  ```
+* **Beklenen Durum:** **`404 Not Found`**
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+    "title": "Kayıt Bulunamadı",
+    "status": 404,
+    "detail": "Paylaşılmak istenen kullanıcı bulunamadı.",
+    "instance": "/api/todoitems/{{taskId}}/shares"
+  }
+  ```
 
 ### 8.2 Paylaşılan Kullanıcıları Listeleme
+* **Açıklama:** Görevin kimlerle paylaşıldığı listelenir.
 * **Metot & URL:** `GET {{baseUrl}}/api/todoitems/{{taskId}}/shares`
 * **Headers:** `Authorization: Bearer {{user1_token}}`
-* **Beklenen Durum:** `200 OK` (Listede `testuser2@example.com` görünür).
+* **Beklenen Durum:** `200 OK`
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "data": [
+      {
+        "userId": "9fa85f64-5717-4562-b3fc-2c963f66afa6",
+        "email": "testuser2@example.com",
+        "sharedAt": "2026-09-27T10:00:00Z"
+      }
+    ]
+  }
+  ```
 
 ### 8.3 User 2'nin Paylaşılan Görevi Okuması
+* **Açıklama:** Görevin paylaşıldığı User 2'nin görevin detaylarını görüntüleyebildiği doğrulanır.
 * **Metot & URL:** `GET {{baseUrl}}/api/TodoItems/{{taskId}}`
 * **Headers:** `Authorization: Bearer {{user2_token}}`
-* **Beklenen Durum:** `200 OK` (User 2 görevi görebilir).
+* **Beklenen Durum:** `200 OK`
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "id": "{{taskId}}",
+    "title": "Siber Güvenlik İncelemesi Yap",
+    "description": "Pentest bulgularını kontrol et",
+    "status": 0,
+    "priority": 2,
+    "isOwner": false
+  }
+  ```
 
 ### 8.4 [Yetki Kuralı] User 2'nin Görevi Tamamlamayı Denemesi
+* **Açıklama:** Paylaşılan kullanıcı ana görevi tamamlayamaz, yalnızca görevin sahibi tamamlayabilir (BR-025).
 * **Metot & URL:** `PATCH {{baseUrl}}/api/TodoItems/{{taskId}}/complete`
 * **Headers:** `Authorization: Bearer {{user2_token}}`
 * **Beklenen Durum:** **`404 Not Found`**  
-  *(BR-025 gereği paylaşılan kullanıcı ana görevi tamamlayamaz, yalnızca sahip tamamlayabilir).*
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+    "title": "Kayıt Bulunamadı",
+    "status": 404,
+    "detail": "Görev bulunamadı."
+  }
+  ```
 
 ### 8.5 [Yetki Kuralı] User 2'nin Paylaşılan Görevi Silememesi
+* **Açıklama:** Paylaşılan kullanıcı görevi silemez; yalnızca görev sahibi silebilir (BR-008 & BR-026).
 * **Metot & URL:** `DELETE {{baseUrl}}/api/TodoItems/{{taskId}}`
 * **Headers:** `Authorization: Bearer {{user2_token}}`
-* **Beklenen Durum:** **`404 Not Found`**  
-  *(BR-008 & BR-026 gereği yalnızca görev sahibi silebilir; paylaşılan kullanıcı 404 alır).*
+* **Beklenen Durum:** **`404 Not Found`**
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+    "title": "Kayıt Bulunamadı",
+    "status": 404,
+    "detail": "Görev bulunamadı."
+  }
+  ```
 
 ### 8.6 [Yetki Kuralı] User 2'nin Görevi Başkasıyla Paylaşamaması (Re-share Engeli)
+* **Açıklama:** Yalnızca görevin sahibi paylaşım yapabilir; görevin paylaşıldığı kullanıcılar başkalarıyla paylaşamaz (BR-013).
 * **Metot & URL:** `POST {{baseUrl}}/api/todoitems/{{taskId}}/shares`
-* **Headers:** `Authorization: Bearer {{user2_token}}`
-* **Body (Raw JSON):** `{ "email": "testuser3@example.com" }`
-* **Beklenen Durum:** **`404 Not Found`**  
-  *(BR-013 gereği yalnızca görev sahibi paylaşım yapabilir).*
+* **Headers:**  
+  * `Authorization: Bearer {{user2_token}}`
+  * `Content-Type: application/json`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "email": "third_party_user@example.com"
+  }
+  ```
+* **Beklenen Durum:** **`404 Not Found`**
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+    "title": "Kayıt Bulunamadı",
+    "status": 404,
+    "detail": "Görev bulunamadı."
+  }
+  ```
 
 ---
 
 ## Adım 9: Görev Sahiplik Devri (Ownership Transfer)
 
 ### 9.1 Devir Talebi Başlatma (User 1 -> User 2)
+* **Açıklama:** User 1, görevin mutlak mülkiyetini User 2'ye devretmek için talep oluşturur.
 * **Metot & URL:** `POST {{baseUrl}}/api/todoitems/{{taskId}}/transfer-requests`
-* **Headers:** `Authorization: Bearer {{user1_token}}`
+* **Headers:**  
+  * `Authorization: Bearer {{user1_token}}`
+  * `Content-Type: application/json`
 * **Body (Raw JSON):**
   ```json
   {
-    "targetUserEmail": "testuser2@example.com"
+    "newOwnerEmail": "testuser2@example.com"
   }
   ```
 * **Beklenen Durum:** `200 OK`
-* **İşlem:** Dönen `id` değerini `transferRequestId` olarak kaydedin.
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "id": "7fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "taskId": "{{taskId}}",
+    "taskTitle": "Siber Güvenlik İncelemesi Yap",
+    "fromUserId": "...",
+    "fromUserEmail": "testuser1@example.com",
+    "toUserId": "...",
+    "toUserEmail": "testuser2@example.com",
+    "status": "Pending",
+    "createdAt": "2026-09-27T10:00:00Z"
+  }
+  ```
+* **İşlem:** Dönen yanıttaki `id` değerini `transferRequestId` olarak Postman değişkenlerine kaydedin.
 
 #### 9.1.1 [Validasyon Testi] Görevi Kendine Devretme Engeli
+* **Açıklama:** Kullanıcı görevin sahipliğini zaten elinde bulundurduğu için kendine devir talebi açamaz.
 * **Metot & URL:** `POST {{baseUrl}}/api/todoitems/{{taskId}}/transfer-requests`
-* **Headers:** `Authorization: Bearer {{user1_token}}`
-* **Body (Raw JSON):** `{ "targetUserEmail": "testuser1@example.com" }`
-* **Beklenen Durum:** **`400 Bad Request`** (`"Görevin sahipliğini zaten elinizde bulunduruyorsunuz."`)
+* **Headers:**  
+  * `Authorization: Bearer {{user1_token}}`
+  * `Content-Type: application/json`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "newOwnerEmail": "testuser1@example.com"
+  }
+  ```
+* **Beklenen Durum:** **`400 Bad Request`**
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+    "title": "Doğrulama Hatası",
+    "status": 400,
+    "detail": "Görevin sahipliğini zaten elinizde bulunduruyorsunuz."
+  }
+  ```
 
 #### 9.1.2 [Çakışma Testi] Aynı Göreve İkinci Devir Talebi Engeli (Conflict)
-* **Açıklama:** Bekleyen bir talep varken aynı görev için tekrar devir talebi açmayı deneyin.
+* **Açıklama:** Bekleyen bir devir talebi varken aynı görev için ikinci bir talep açılamaz.
 * **Metot & URL:** `POST {{baseUrl}}/api/todoitems/{{taskId}}/transfer-requests`
-* **Headers:** `Authorization: Bearer {{user1_token}}`
-* **Body (Raw JSON):** `{ "targetUserEmail": "testuser2@example.com" }`
-* **Beklenen Durum:** **`409 Conflict`** (`"Bu görev için zaten bekleyen bir devir talebi bulunmaktadır."`)
+* **Headers:**  
+  * `Authorization: Bearer {{user1_token}}`
+  * `Content-Type: application/json`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "newOwnerEmail": "testuser2@example.com"
+  }
+  ```
+* **Beklenen Durum:** **`409 Conflict`**
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.10",
+    "title": "Çakışma Hatası",
+    "status": 409,
+    "detail": "Bu görev için zaten bekleyen bir devir talebi bulunmaktadır."
+  }
+  ```
 
 ### 9.2 Bekleyen Devir Talebini İnceleme (User 2)
+* **Açıklama:** Hedef kullanıcı (User 2), gelen devir talebini listeler.
 * **Metot & URL:** `GET {{baseUrl}}/api/transfer-requests/pending`
 * **Headers:** `Authorization: Bearer {{user2_token}}`
-* **Beklenen Durum:** `200 OK` (Bekleyen devir talebi listede görünür).
+* **Beklenen Durum:** `200 OK`
+* **Beklenen Yanıt (JSON):**
+  ```json
+  [
+    {
+      "id": "{{transferRequestId}}",
+      "taskId": "{{taskId}}",
+      "taskTitle": "Siber Güvenlik İncelemesi Yap",
+      "fromUserId": "...",
+      "fromUserEmail": "testuser1@example.com",
+      "toUserId": "...",
+      "toUserEmail": "testuser2@example.com",
+      "status": "Pending",
+      "createdAt": "2026-09-27T10:00:00Z"
+    }
+  ]
+  ```
 
 ### 9.3 Devir Talebini Kabul Etme (User 2)
+* **Açıklama:** User 2 talebi onaylayarak görevin yeni sahibi olur. User 1 ise otomatik olarak paylaşılanlar listesine alınır.
 * **Metot & URL:** `POST {{baseUrl}}/api/transfer-requests/{{transferRequestId}}/accept`
 * **Headers:** `Authorization: Bearer {{user2_token}}`
-* **Beklenen Durum:** `200 OK` (`"Görev devir talebi başarıyla kabul edildi ve sahiplik aktarıldı."`)
-* **Doğrulama:** Artık görevin yeni sahibi User 2'dir. User 1 ise otomatik olarak paylaşılanlar listesine alınmıştır.
+* **Body:** Gövde yok (Empty)
+* **Beklenen Durum:** `200 OK`
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "message": "Görev devir talebi başarıyla kabul edildi ve sahiplik aktarıldı."
+  }
+  ```
 
 #### 9.4 [Sahiplik Geçişi Doğrulaması] Eski Sahip User 1'in Görevi Silememesi
-* **Açıklama:** Sahiplik devredildikten sonra User 1'in görev silme yetkisinin düştüğünü doğrulayın.
+* **Açıklama:** Sahiplik devredildikten sonra User 1 artık görevin sahibi değildir ve silme yetkisi düşmüştür.
 * **Metot & URL:** `DELETE {{baseUrl}}/api/TodoItems/{{taskId}}`
 * **Headers:** `Authorization: Bearer {{user1_token}}` *(Eski sahip!)*
 * **Beklenen Durum:** **`404 Not Found`**
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+    "title": "Kayıt Bulunamadı",
+    "status": 404,
+    "detail": "Görev bulunamadı."
+  }
+  ```
 
 #### 9.5 [Tekrar İşlem Engeli] Zaten Kabul Edilmiş Talebin Tekrar Yanıtlanamaması
+* **Açıklama:** Yanıtlanmış veya kabul edilmiş bir talep ikinci kez kabul edilemez.
 * **Metot & URL:** `POST {{baseUrl}}/api/transfer-requests/{{transferRequestId}}/accept`
 * **Headers:** `Authorization: Bearer {{user2_token}}`
-* **Beklenen Durum:** **`400 Bad Request`** (`"Bu devir talebi zaten yanıtlanmış veya iptal edilmiş."`)
+* **Beklenen Durum:** **`400 Bad Request`**
+* **Beklenen Yanıt (JSON):**
+  ```json
+    {
+      "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+      "title": "Doğrulama Hatası",
+      "status": 400,
+      "detail": "Bu devir talebi zaten yanıtlanmış veya iptal edilmiş."
+    }
+  ```
 
 ---
 
@@ -639,41 +892,104 @@ Aşağıdaki adımlarla bu güvenlik mekanizmalarını bizzat doğrulayabilirsin
 * **Açıklama:** Çöp kutusuna taşınmamış (aktif) bir görevin doğrudan kalıcı olarak silinmesi engellenmelidir.
 * **Metot & URL:** `DELETE {{baseUrl}}/api/TodoItems/{{taskId}}/permanent`
 * **Headers:** `Authorization: Bearer {{user2_token}}` *(Yeni sahip User 2)*
-* **Beklenen Durum:** **`400 Bad Request`** (`"Yalnızca çöp kutusundaki görevler kalıcı olarak silinebilir."`)
+* **Beklenen Durum:** **`400 Bad Request`**
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+    "title": "Doğrulama Hatası",
+    "status": 400,
+    "detail": "Yalnızca çöp kutusundaki görevler kalıcı olarak silinebilir."
+  }
+  ```
 
 #### 10.2 [Mantık Kuralı] Çöp Kutusunda Olmayan Aktif Görevi Geri Yükleme Engeli
+* **Açıklama:** Çöp kutusunda bulunmayan aktif bir göreve geri yükleme yapılamaz.
 * **Metot & URL:** `POST {{baseUrl}}/api/TodoItems/{{taskId}}/restore`
 * **Headers:** `Authorization: Bearer {{user2_token}}`
-* **Beklenen Durum:** **`400 Bad Request`** (`"Bu görev zaten aktif durumda."`)
+* **Beklenen Durum:** **`400 Bad Request`**
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+    "title": "Doğrulama Hatası",
+    "status": 400,
+    "detail": "Bu görev zaten aktif durumda."
+  }
+  ```
 
 ### 10.3 Görevi Çöp Kutusuna Taşıma (Soft Delete)
+* **Açıklama:** Görevin yeni sahibi User 2, görevi çöp kutusuna taşır.
 * **Metot & URL:** `DELETE {{baseUrl}}/api/TodoItems/{{taskId}}`
 * **Headers:** `Authorization: Bearer {{user2_token}}`
-* **Beklenen Durum:** **`204 NoContent`**
-* **Doğrulama:** `GET {{baseUrl}}/api/TodoItems` çağrıldığında bu görev aktif listeden kaybolur.
+* **Beklenen Durum:** `204 NoContent`
+* **Beklenen Yanıt:** *(Gövde boştur)*
 
 ### 10.4 Çöp Kutusunu Görüntüleme
+* **Açıklama:** Soft-delete edilen görevin çöp kutusunda listelendiğini doğrulayın.
 * **Metot & URL:** `GET {{baseUrl}}/api/TodoItems/trash?page=1&pageSize=10`
 * **Headers:** `Authorization: Bearer {{user2_token}}`
-* **Beklenen Durum:** `200 OK` (Silinen görev çöp kutusunda listelenir).
+* **Beklenen Durum:** `200 OK`
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "items": [
+      {
+        "id": "{{taskId}}",
+        "title": "Siber Güvenlik İncelemesi Yap",
+        "isDeleted": true,
+        "deletedAt": "2026-09-27T10:00:00Z"
+      }
+    ],
+    "page": 1,
+    "pageSize": 10,
+    "totalCount": 1,
+    "totalPages": 1
+  }
+  ```
 
 ### 10.5 Çöpten Geri Yükleme (Restore)
+* **Açıklama:** Çöp kutusundaki görev tekrar aktif görevler listesine geri yüklenir.
 * **Metot & URL:** `POST {{baseUrl}}/api/TodoItems/{{taskId}}/restore`
 * **Headers:** `Authorization: Bearer {{user2_token}}`
-* **Beklenen Durum:** `200 OK` (Görev tekrar aktif listeye döner).
+* **Beklenen Durum:** `200 OK`
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "id": "{{taskId}}",
+    "title": "Siber Güvenlik İncelemesi Yap",
+    "isDeleted": false
+  }
+  ```
 
-### 10.6 Kalıcı Silme (Permanent Delete)
-1. Tekrar soft delete yapın: `DELETE {{baseUrl}}/api/TodoItems/{{taskId}}` (Headers: User 2) -> `204 NoContent`
-2. Kalıcı olarak silin:
-   * **Metot & URL:** `DELETE {{baseUrl}}/api/TodoItems/{{taskId}}/permanent`
-   * **Headers:** `Authorization: Bearer {{user2_token}}`
-   * **Beklenen Durum:** **`204 NoContent`**
-3. Çöp kutusunu kontrol edin: `GET {{baseUrl}}/api/TodoItems/trash` -> Boş döner.
+### 10.6 Görevi Tekrar Çöp Kutusuna Taşıma (Kalıcı Silme Hazırlığı)
+* **Açıklama:** Kalıcı silme yapabilmek için görevi tekrar çöp kutusuna taşıyın.
+* **Metot & URL:** `DELETE {{baseUrl}}/api/TodoItems/{{taskId}}`
+* **Headers:** `Authorization: Bearer {{user2_token}}`
+* **Beklenen Durum:** `204 NoContent`
+* **Beklenen Yanıt:** *(Gövde boştur)*
 
-#### 10.7 [Kalıcı Silme Doğrulaması] Silinen Görevin Geri Yüklenememesi
+### 10.7 Kalıcı Olarak Silme (Permanent Delete)
+* **Açıklama:** Çöp kutusundaki görev veritabanından tamamen silinir.
+* **Metot & URL:** `DELETE {{baseUrl}}/api/TodoItems/{{taskId}}/permanent`
+* **Headers:** `Authorization: Bearer {{user2_token}}`
+* **Beklenen Durum:** `204 NoContent`
+* **Beklenen Yanıt:** *(Gövde boştur)*
+
+#### 10.8 [Kalıcı Silme Doğrulaması] Silinen Görevin Artık Geri Yüklenememesi
+* **Açıklama:** Kalıcı silinen bir görevin restore edilmeye çalışıldığında artık sistemde bulunamadığını doğrulayın.
 * **Metot & URL:** `POST {{baseUrl}}/api/TodoItems/{{taskId}}/restore`
 * **Headers:** `Authorization: Bearer {{user2_token}}`
 * **Beklenen Durum:** **`404 Not Found`**
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+    "title": "Kayıt Bulunamadı",
+    "status": 404,
+    "detail": "Görev bulunamadı."
+  }
+  ```
 
 ---
 
@@ -682,7 +998,9 @@ Aşağıdaki adımlarla bu güvenlik mekanizmalarını bizzat doğrulayabilirsin
 ### 11.1 [RBAC Yetki Testi] Standart Kullanıcının Etiket Oluşturma Engeli
 * **Açıklama:** Sistemimizde etiket oluşturma yetkisi yalnızca `Admin` rolündedir (BR-022). Standart kullanıcının etiket oluşturamadığını test edin.
 * **Metot & URL:** `POST {{baseUrl}}/api/tags`
-* **Headers:** `Authorization: Bearer {{user1_token}}`
+* **Headers:**  
+  * `Authorization: Bearer {{user1_token}}`
+  * `Content-Type: application/json`
 * **Body (Raw JSON):**
   ```json
   {
@@ -690,12 +1008,25 @@ Aşağıdaki adımlarla bu güvenlik mekanizmalarını bizzat doğrulayabilirsin
     "color": "#e74c3c"
   }
   ```
-* **Beklenen Durum:** **`403 Forbidden`** *(Standart kullanıcıya etiket oluşturma kapalıdır).*
+* **Beklenen Durum:** **`403 Forbidden`** *(Standart kullanıcılara etiket oluşturma kapalıdır)*
 
 ### 11.2 Genel Etiketleri Listeleme
+* **Açıklama:** Standart kullanıcılar sistemdeki mevcut etiketleri okuyabilir.
 * **Metot & URL:** `GET {{baseUrl}}/api/tags`
 * **Headers:** `Authorization: Bearer {{user1_token}}`
-* **Beklenen Durum:** `200 OK` (Mevcut global etiketler listelenir).
+* **Beklenen Durum:** `200 OK`
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "data": [
+      {
+        "id": "8fa85f64-5717-4562-b3fc-2c963f66afa6",
+        "name": "Yazılım",
+        "color": "#3498db"
+      }
+    ]
+  }
+  ```
 
 ---
 
@@ -704,20 +1035,62 @@ Aşağıdaki adımlarla bu güvenlik mekanizmalarını bizzat doğrulayabilirsin
 Bu adım, **Aşama 2'de düzelttiğimiz SQL 547 Foreign Key çökmesinin** ve kritik işlem öncesi parola doğrulama (Re-authentication) kuralının canlı doğrulamasını yapar.
 
 ### 12.1 Ön Hazırlık: Soft-Delete Edilmiş Görev Bırakma
-1. User 1 ile yeni bir görev oluşturun: `POST /api/TodoItems` -> `taskId_temp`
-2. Görevi tamamlayın: `PATCH /api/TodoItems/{{taskId_temp}}/complete` (`CompletedByUserId = User1`)
-3. Görevi silin: `DELETE /api/TodoItems/{{taskId_temp}}` (`DeletedByUserId = User1`, `IsDeleted = true`)
 
-#### 12.2 [Güvenlik Testi] Hatalı Parolayla Hesap Silme Reddi (Re-Authentication Koruması)
+#### 12.1.1 Yeni Bir Görev Oluşturun
+* **Metot & URL:** `POST {{baseUrl}}/api/TodoItems`
+* **Headers:**  
+  * `Authorization: Bearer {{user1_token}}`
+  * `Content-Type: application/json`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "title": "Hesap Silme Test Görevi",
+    "description": "FK constraint test"
+  }
+  ```
+* **Beklenen Durum:** `201 Created`
+* **İşlem:** Dönen yanıttaki `id` değerini `tempTaskId` olarak kaydedin.
+
+#### 12.1.2 Görevi Tamamlayın (CompletedByUserId Atansın)
+* **Metot & URL:** `PATCH {{baseUrl}}/api/TodoItems/{{tempTaskId}}/complete`
+* **Headers:** `Authorization: Bearer {{user1_token}}`
+* **Beklenen Durum:** `200 OK`
+
+#### 12.1.3 Görevi Silin (DeletedByUserId Atansın & IsDeleted = true)
+* **Metot & URL:** `DELETE {{baseUrl}}/api/TodoItems/{{tempTaskId}}`
+* **Headers:** `Authorization: Bearer {{user1_token}}`
+* **Beklenen Durum:** `204 NoContent`
+
+---
+
+### 12.2 [Güvenlik Testi] Hatalı Parolayla Hesap Silme Reddi (Re-Authentication)
 * **Açıklama:** Hesap silme gibi geri dönülemez işlemlerde parola teyidi zorunludur. Yanlış şifreyle silme girişimini test edin.
 * **Metot & URL:** `DELETE {{baseUrl}}/api/Users/me`
-* **Headers:** `Authorization: Bearer {{user1_token}}`
-* **Body (Raw JSON):** `{ "password": "WrongPassword999!" }`
-* **Beklenen Durum:** **`400 Bad Request`** (`"Mevcut şifre hatalı."`)
+* **Headers:**  
+  * `Authorization: Bearer {{user1_token}}`
+  * `Content-Type: application/json`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "password": "WrongPassword999!"
+  }
+  ```
+* **Beklenen Durum:** **`400 Bad Request`**
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+    "title": "Doğrulama Hatası",
+    "status": 400,
+    "detail": "Mevcut şifre hatalı."
+  }
+  ```
 
 ### 12.3 Hesabı Başarıyla Silme (Delete Account)
 * **Metot & URL:** `DELETE {{baseUrl}}/api/Users/me`
-* **Headers:** `Authorization: Bearer {{user1_token}}`
+* **Headers:**  
+  * `Authorization: Bearer {{user1_token}}`
+  * `Content-Type: application/json`
 * **Body (Raw JSON):**
   ```json
   {
@@ -725,14 +1098,216 @@ Bu adım, **Aşama 2'de düzelttiğimiz SQL 547 Foreign Key çökmesinin** ve kr
   }
   ```
 * **Beklenen Durum:** **`204 NoContent`**
+* **Beklenen Yanıt:** *(Gövde boştur)*
 * **Kritik Doğrulama:**
-  - Eski kodda bu istek `500 Internal Server Error (SQL 547 constraint violation)` verip çöküyordu.
-  - Artık `.IgnoreQueryFilters()` sayesinde soft-delete edilmiş görevlerin `CompletedByUserId` ve `DeletedByUserId` referansları başarıyla temizlenir ve hesap **hatasız silinir.**
+  * Eski kodda bu istek `500 Internal Server Error (SQL 547 constraint violation)` verip çöküyordu.
+  * Artık `.IgnoreQueryFilters()` sayesinde soft-delete edilmiş görevlerin `CompletedByUserId` ve `DeletedByUserId` referansları başarıyla temizlenir ve hesap **hatasız silinir.**
 
-#### 12.4 [Hesap Silme Sonrası Kontroller]
-1. Silinen hesabın eski token'ı ile korumalı bir istek atın:  
-   * `GET {{baseUrl}}/api/TodoLists` (Headers: `Bearer {{user1_token}}`)  
-   * 👉 **Beklenen Durum:** **`401 Unauthorized`**
-2. Silinen hesapla tekrar giriş yapmayı deneyin:  
-   * `POST {{baseUrl}}/api/Auth/login` (email: `testuser1@example.com`)  
-   * 👉 **Beklenen Durum:** **`400 Bad Request`** (`"E-posta veya şifre hatalı."`)
+---
+
+### 12.4 [Hesap Silme Sonrası Kontroller]
+
+#### 12.4.1 Silinen Hesabın Token'ının Anında Düşmesi
+* **Açıklama:** Hesap silindiği anda o kullanıcının elindeki JWT access token anında geçersiz kalmalıdır.
+* **Metot & URL:** `GET {{baseUrl}}/api/TodoLists`
+* **Headers:** `Authorization: Bearer {{user1_token}}`
+* **Beklenen Durum:** **`401 Unauthorized`**
+
+#### 12.4.2 Silinen Hesapla Girişin Engellenmesi
+* **Açıklama:** Silinen hesapla tekrar giriş yapılamamalıdır.
+* **Metot & URL:** `POST {{baseUrl}}/api/Auth/login`
+* **Headers:** `Content-Type: application/json`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "email": "testuser1@example.com",
+    "password": "{{user1_password}}"
+  }
+  ```
+* **Beklenen Durum:** **`400 Bad Request`**
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+    "title": "Doğrulama Hatası",
+    "status": 400,
+    "detail": "E-posta veya şifre hatalı."
+  }
+  ```
+
+---
+
+## Adım 13: Gerçek Zamanlı Bildirimler (SignalR / WebSocket Testi)
+
+API'mizde arka plandaki SignalR Hub adresi: **`/hubs/todo`**  
+Kullanıcılar bağlandığında JWT token URL'ye query parametresi (`?access_token=...`) olarak eklenir.
+
+### 13.1 SignalR Dinleyicisini Başlatma (User 2 Dinliyor)
+
+User 2 adına canlı bildirimleri dinlemek için aşağıdaki iki yöntemden birini seçin:
+
+#### Yöntem A: Postman'in WebSocket İstemcisiyle
+1. Postman'de sol üstteki **New -> WebSocket Request** seçin.
+2. URL çubuğuna şunu girin:
+   ```text
+   wss://{{baseUrl}}/hubs/todo?access_token={{user2_token}}
+   ```
+   *(Not: `{{baseUrl}}` içindeki `https://` kısmını `wss://` olarak değiştirin).*
+3. **Connect** butonuna basın (durum yeşil **Connected** olacaktır).
+4. Alttaki mesaj giriş kutusuna SignalR el sıkışma (handshake) mesajını yapıştırıp **Send** deyin:
+   ```text
+   {"protocol":"json","version":1} 
+   ```
+   *(Sunucudan `{} ` yanıtı gelerek dinleme aktifleşir).*
+
+#### Yöntem B: Tarayıcı Konsoluyla (En Pratik)
+1. Tarayıcınızda (Chrome/Edge) **F12 -> Console** sekmesine gelin.
+2. Aşağıdaki kodu yapıştırıp `user2_token` değerinizi içine yazarak Enter'a basın:
+   ```javascript
+   const s = document.createElement('script');
+   s.src = "https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js";
+   document.head.appendChild(s);
+   s.onload = () => {
+       const conn = new signalR.HubConnectionBuilder()
+           .withUrl("https://<azure-url-adresiniz>/hubs/todo", {
+               accessTokenFactory: () => "<BURAYA_USER2_TOKEN_YAZIN>"
+           })
+           .build();
+
+       conn.on("ReceiveNotification", (title, message) => {
+           console.log("🔔 BİLDİRİM GELDİ:", title, message);
+           alert(`🔔 ${title}\n${message}`);
+       });
+
+       conn.start().then(() => console.log("✅ SignalR Bağlandı! Bildirim bekleniyor..."));
+   };
+   ```
+
+---
+
+### 13.2 Canlı Bildirimi Tetikleme (User 1 -> Görev Paylaşımı)
+* **Açıklama:** Dinleyici açıkken, User 1 ile User 2'ye bir görev paylaşarak anlık bildirimi tetikleyin.
+* **Metot & URL:** `POST {{baseUrl}}/api/todoitems/{{taskId}}/shares`
+* **Headers:**  
+  * `Authorization: Bearer {{user1_token}}`
+  * `Content-Type: application/json`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "email": "testuser2@example.com"
+  }
+  ```
+* **Beklenen Durum:** `200 OK`
+
+### 13.3 WebSocket / Konsol Ekranında Bildirimi Doğrulama
+* **Beklenen WebSocket Mesajı (JSON):**
+  ```json
+  {
+    "type": 1,
+    "target": "ReceiveNotification",
+    "arguments": [
+      "Yeni Görev Paylaşımı",
+      "'Siber Güvenlik İncelemesi Yap' adlı görev sizinle paylaşıldı."
+    ]
+  }
+  ```
+* **Sonuç:** Bildirimin REST API beklemesi olmadan milisaniyeler içinde WebSocket üzerinden istemciye ulaştığı teyit edilir.
+
+---
+
+## Adım 14: E-posta (SMTP) & Şifre Sıfırlama Akışı
+
+API'mizde e-posta gönderimi `MailKit` üzerinden asenkron işletilir.
+
+> [!NOTE]
+> Canlı ortamda (Azure) gerçek gelen kutunuza e-posta düşmesi için Azure App Service'te `Smtp__Host`, `Smtp__Username` ve `Smtp__Password` tanımlı olmalıdır (Mailtrap veya Gmail Uygulama Şifresi).  
+> Tanımlı olmasa dahi API'miz kullanıcı tespiti yapılmasını (User Enumeration) önlemek için hata fırlatmaz, güvenli şekilde `200 OK` döner.
+
+### 14.1 Şifre Sıfırlama Bağlantısı İsteme (Forgot Password)
+* **Açıklama:** Kullanıcı şifresini unuttuğunda e-posta adresine sıfırlama bileti gönderilmesini talep eder.
+* **Metot & URL:** `POST {{baseUrl}}/api/Auth/forgot-password`
+* **Headers:** `Content-Type: application/json`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "email": "testuser2@example.com"
+  }
+  ```
+* **Beklenen Durum:** `200 OK`
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "message": "Eğer bu e-posta adresi kayıtlıysa, şifre sıfırlama bağlantısı gönderildi."
+  }
+  ```
+* **İşlem:** E-posta gelen kutunuza (veya Mailtrap sanal kutunuza) gelen linkteki `token` parametresini kopyalayın ve Postman'de `resetToken` değişkenine kaydedin.
+
+### 14.2 Sıfırlama Token'ı ile Yeni Şifre Belirleme (Reset Password)
+* **Açıklama:** E-postadaki tek kullanımlık biletle kullanıcı yeni şifresini belirler.
+* **Metot & URL:** `POST {{baseUrl}}/api/Auth/reset-password`
+* **Headers:** `Content-Type: application/json`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "token": "{{resetToken}}",
+    "newPassword": "NewResetPassword123!"
+  }
+  ```
+* **Beklenen Durum:** `200 OK`
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "message": "Şifreniz başarıyla değiştirildi."
+  }
+  ```
+
+#### 14.3 [Güvenlik Testi] Kullanılmış Sıfırlama Biletinin Tekrar Kullanılamaması
+* **Açıklama:** Şifre sıfırlama token'ları tek kullanımlıktır (`IsUsed = true`). Az önce kullandığınız aynı biletle tekrar istek atın.
+* **Metot & URL:** `POST {{baseUrl}}/api/Auth/reset-password`
+* **Headers:** `Content-Type: application/json`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "token": "{{resetToken}}",
+    "newPassword": "AnotherPassword123!"
+  }
+  ```
+* **Beklenen Durum:** **`400 Bad Request`**
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+    "title": "Doğrulama Hatası",
+    "status": 400,
+    "detail": "Geçersiz veya süresi dolmuş sıfırlama bağlantısı."
+  }
+  ```
+
+#### 14.4 [Güvenlik Testi] Şifre Sıfırlandıktan Sonra Eski Oturumların İptal Olduğunun Doğrulanması
+* **Açıklama:** Şifre sıfırlandığında kullanıcının veritabanındaki `SecurityStamp` değeri yenilenir ve tüm refresh token'ları iptal edilir. Sıfırlama öncesindeki eski token'ın öldüğünü teyit edin.
+* **Metot & URL:** `GET {{baseUrl}}/api/TodoLists`
+* **Headers:** `Authorization: Bearer {{user2_token}}` *(Eski token)*
+* **Beklenen Durum:** **`401 Unauthorized`**
+
+### 14.5 Yeni Sıfırlanan Şifreyle Başarılı Giriş
+* **Açıklama:** Kullanıcının yeni şifresiyle sisteme başarıyla giriş yapabildiğini doğrulayın.
+* **Metot & URL:** `POST {{baseUrl}}/api/Auth/login`
+* **Headers:** `Content-Type: application/json`
+* **Body (Raw JSON):**
+  ```json
+  {
+    "email": "testuser2@example.com",
+    "password": "NewResetPassword123!"
+  }
+  ```
+* **Beklenen Durum:** `200 OK`
+* **Beklenen Yanıt (JSON):**
+  ```json
+  {
+    "userId": "9fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "email": "testuser2@example.com",
+    "token": "eyJhbGciOiJIUzI1NiIs...",
+    "refreshToken": "...",
+    "requiresTwoFactor": false
+  }
+  ```

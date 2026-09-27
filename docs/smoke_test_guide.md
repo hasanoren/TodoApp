@@ -109,7 +109,7 @@ Bu rehber, TodoApp API'sinin yeni bir ortama dağıtıldığında veya ana özel
 ### Adım 8: Sahiplik Devir Akışı (Ownership Transfer)
 1. `owner@example.com` token'ı ile:
    * **İstek:** `POST /api/todoitems/{TASK_ID}/transfer-requests`
-   * **Gövde:** `{ "targetUserEmail": "collab@example.com" }`
+   * **Gövde:** `{ "newOwnerEmail": "collab@example.com" }`
    * **Beklenen Yanıt:** `200 OK` (Dönen `id` değerini `REQUEST_ID` olarak not edin).
 2. `collab@example.com` token'ı ile:
    * **İstek:** `GET /api/transfer-requests/pending` → Listede talebi görür.

@@ -36,8 +36,22 @@ public class UserRepository : IUserRepository
         await using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            // SQL Server multiple cascade paths nedeniyle NoAction olan ilişkileri manuel temizliyoruz
-            // Not: Soft-delete edilmiş (IsDeleted = true) kayıtların da temizlenebilmesi için IgnoreQueryFilters() şarttır.
+            // SQL Server multiple cascade paths ve NoAction olan ilişkileri manuel temizliyoruz
+            // 1. Kullanıcının sahip olduğu listelere bağlı tüm görevlerin (başka kullanıcılara devredilmiş veya soft-deleted olsa bile)
+            // TodoListId bağlantısını null yaparak Inbox'a taşıyoruz (FK_TodoItems_TodoLists_TodoListId NoAction kısıtını çözer).
+            var userTodoListIds = await _context.TodoLists.IgnoreQueryFilters()
+                .Where(l => l.OwnerId == user.Id)
+                .Select(l => l.Id)
+                .ToListAsync();
+
+            if (userTodoListIds.Count > 0)
+            {
+                await _context.TodoItems.IgnoreQueryFilters()
+                    .Where(t => t.TodoListId.HasValue && userTodoListIds.Contains(t.TodoListId.Value))
+                    .ExecuteUpdateAsync(s => s.SetProperty(t => t.TodoListId, (Guid?)null));
+            }
+
+            // 2. Soft-delete edilmiş (IsDeleted = true) kayıtların da temizlenebilmesi için IgnoreQueryFilters() şarttır.
             await _context.TodoItems.IgnoreQueryFilters()
                 .Where(t => t.CompletedByUserId == user.Id)
                 .ExecuteUpdateAsync(s => s.SetProperty(t => t.CompletedByUserId, (Guid?)null));

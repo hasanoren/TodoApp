@@ -364,7 +364,7 @@
 ### 7.1 Sahiplik Devir Talebi Başlatma
 * **Endpoint:** `POST /api/todoitems/{taskId}/transfer-requests`
 * **Yetki:** `[Authorize]` (`BR-030`: Yalnızca Görev Sahibi başlatabilir)
-* **İstek:** `{ "targetUserEmail": "yeni_sahip@ornek.com" }`
+* **İstek:** `{ "newOwnerEmail": "yeni_sahip@ornek.com" }`
 * **Yanıt (200 OK):** `TransferRequestResponse`
 
 ### 7.2 Onay Bekleyen Devir Taleplerini Listeleme
