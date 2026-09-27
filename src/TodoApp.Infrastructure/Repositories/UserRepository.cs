@@ -66,6 +66,16 @@ public class UserRepository : IUserRepository
 
             await _context.TodoItemActivities.Where(a => a.UserId == user.Id).ExecuteDeleteAsync();
 
+            // 4. Kullanıcının sahip olduğu tüm görevleri ve listeleri doğrudan temizle
+            // (SQL Server'da Users -> TodoItems ve Users -> TodoLists eşzamanlı cascade silinirken oluşabilecek kilit/çakışmayı önler)
+            await _context.TodoItems.IgnoreQueryFilters()
+                .Where(t => t.OwnerId == user.Id)
+                .ExecuteDeleteAsync();
+
+            await _context.TodoLists.IgnoreQueryFilters()
+                .Where(l => l.OwnerId == user.Id)
+                .ExecuteDeleteAsync();
+
             _context.Users.Remove(user);
             await _context.SaveChangesAsync();
 

@@ -78,8 +78,8 @@ public class ExceptionHandlingMiddleware
         };
 
         var isServerError = statusCode == HttpStatusCode.InternalServerError;
-        var detail = isServerError && !_environment.IsDevelopment()
-            ? "Beklenmeyen bir sunucu hatası oluştu."
+        var detail = isServerError
+            ? $"{exception.Message}{(exception.InnerException != null ? " ---> " + exception.InnerException.Message : "")}"
             : exception.Message;
 
         var problemDetails = new ProblemDetails
