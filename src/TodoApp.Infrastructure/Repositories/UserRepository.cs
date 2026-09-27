@@ -32,60 +32,65 @@ public class UserRepository : IUserRepository
 
     public async Task DeleteAsync(User user)
     {
-        // T10.3.1: Tüm silme adımları tek bir veritabanı transaction'ında atomik yürütülür
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-        try
+        // T10.3.1 & Azure SQL Resiliency: EnableRetryOnFailure devredeyken manual transaction'lar
+        // CreateExecutionStrategy() bloğu içerisinde yürütülmelidir.
+        var strategy = _context.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            // SQL Server multiple cascade paths ve NoAction olan ilişkileri manuel temizliyoruz
-            // 1. Kullanıcının sahip olduğu listelere bağlı tüm görevlerin (başka kullanıcılara devredilmiş veya soft-deleted olsa bile)
-            // TodoListId bağlantısını null yaparak Inbox'a taşıyoruz (FK_TodoItems_TodoLists_TodoListId NoAction kısıtını çözer).
-            var userTodoListIds = await _context.TodoLists.IgnoreQueryFilters()
-                .Where(l => l.OwnerId == user.Id)
-                .Select(l => l.Id)
-                .ToListAsync();
-
-            if (userTodoListIds.Count > 0)
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
+                // SQL Server multiple cascade paths ve NoAction olan ilişkileri manuel temizliyoruz
+                // 1. Kullanıcının sahip olduğu listelere bağlı tüm görevlerin (başka kullanıcılara devredilmiş veya soft-deleted olsa bile)
+                // TodoListId bağlantısını null yaparak Inbox'a taşıyoruz (FK_TodoItems_TodoLists_TodoListId NoAction kısıtını çözer).
+                var userTodoListIds = await _context.TodoLists.IgnoreQueryFilters()
+                    .Where(l => l.OwnerId == user.Id)
+                    .Select(l => l.Id)
+                    .ToListAsync();
+
+                if (userTodoListIds.Count > 0)
+                {
+                    await _context.TodoItems.IgnoreQueryFilters()
+                        .Where(t => t.TodoListId.HasValue && userTodoListIds.Contains(t.TodoListId.Value))
+                        .ExecuteUpdateAsync(s => s.SetProperty(t => t.TodoListId, (Guid?)null));
+                }
+
+                // 2. Soft-delete edilmiş (IsDeleted = true) kayıtların da temizlenebilmesi için IgnoreQueryFilters() şarttır.
                 await _context.TodoItems.IgnoreQueryFilters()
-                    .Where(t => t.TodoListId.HasValue && userTodoListIds.Contains(t.TodoListId.Value))
-                    .ExecuteUpdateAsync(s => s.SetProperty(t => t.TodoListId, (Guid?)null));
+                    .Where(t => t.CompletedByUserId == user.Id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(t => t.CompletedByUserId, (Guid?)null));
+
+                await _context.TodoItems.IgnoreQueryFilters()
+                    .Where(t => t.DeletedByUserId == user.Id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(t => t.DeletedByUserId, (Guid?)null));
+
+                await _context.TaskShares.Where(ts => ts.UserId == user.Id).ExecuteDeleteAsync();
+
+                await _context.OwnershipTransferRequests.Where(otr => otr.FromUserId == user.Id || otr.ToUserId == user.Id).ExecuteDeleteAsync();
+
+                await _context.TodoItemActivities.Where(a => a.UserId == user.Id).ExecuteDeleteAsync();
+
+                // 3. Kullanıcının sahip olduğu tüm görevleri ve listeleri doğrudan temizle
+                // (SQL Server'da Users -> TodoItems ve Users -> TodoLists eşzamanlı cascade silinirken oluşabilecek kilit/çakışmayı önler)
+                await _context.TodoItems.IgnoreQueryFilters()
+                    .Where(t => t.OwnerId == user.Id)
+                    .ExecuteDeleteAsync();
+
+                await _context.TodoLists.IgnoreQueryFilters()
+                    .Where(l => l.OwnerId == user.Id)
+                    .ExecuteDeleteAsync();
+
+                _context.Users.Remove(user);
+                await _context.SaveChangesAsync();
+
+                await transaction.CommitAsync();
             }
-
-            // 2. Soft-delete edilmiş (IsDeleted = true) kayıtların da temizlenebilmesi için IgnoreQueryFilters() şarttır.
-            await _context.TodoItems.IgnoreQueryFilters()
-                .Where(t => t.CompletedByUserId == user.Id)
-                .ExecuteUpdateAsync(s => s.SetProperty(t => t.CompletedByUserId, (Guid?)null));
-
-            await _context.TodoItems.IgnoreQueryFilters()
-                .Where(t => t.DeletedByUserId == user.Id)
-                .ExecuteUpdateAsync(s => s.SetProperty(t => t.DeletedByUserId, (Guid?)null));
-
-            await _context.TaskShares.Where(ts => ts.UserId == user.Id).ExecuteDeleteAsync();
-
-            await _context.OwnershipTransferRequests.Where(otr => otr.FromUserId == user.Id || otr.ToUserId == user.Id).ExecuteDeleteAsync();
-
-            await _context.TodoItemActivities.Where(a => a.UserId == user.Id).ExecuteDeleteAsync();
-
-            // 4. Kullanıcının sahip olduğu tüm görevleri ve listeleri doğrudan temizle
-            // (SQL Server'da Users -> TodoItems ve Users -> TodoLists eşzamanlı cascade silinirken oluşabilecek kilit/çakışmayı önler)
-            await _context.TodoItems.IgnoreQueryFilters()
-                .Where(t => t.OwnerId == user.Id)
-                .ExecuteDeleteAsync();
-
-            await _context.TodoLists.IgnoreQueryFilters()
-                .Where(l => l.OwnerId == user.Id)
-                .ExecuteDeleteAsync();
-
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
-
-            await transaction.CommitAsync();
-        }
-        catch
-        {
-            await transaction.RollbackAsync();
-            throw;
-        }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        });
     }
 
     public async Task<User?> GetByIdAsync(Guid id)
