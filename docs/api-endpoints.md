@@ -120,14 +120,15 @@
 ### 1.7 Şifre Sıfırlama
 * **Endpoint:** `POST /api/Auth/reset-password`
 * **Yetki:** Anonim
+* **Rate Limit:** `auth-reset-password` policy aktif
 * **İstek:**
   ```json
   {
-    "email": "kullanici@ornek.com",
     "token": "base64-url-encoded-reset-token",
     "newPassword": "NewPassword123!"
   }
   ```
+* **Not:** E-postadaki bağlantı URL-encoded token içerir. Mobil istemci bu token'ı `Uri.decodeComponent()` ile decode ettikten sonra body'e koymalıdır.
 * **Yanıt (200 OK):** `{ "message": "Şifreniz başarıyla değiştirildi." }` (Tüm aktif refresh token'lar iptal edilir).
 
 ### 1.8 Şifre Değiştirme (Oturum Açıkken)
@@ -148,8 +149,8 @@
 * **Yanıt (200 OK):**
   ```json
   {
-    "sharedKey": "JBSWY3DPEHPK3PXP",
-    "authenticatorUri": "otpauth://totp/TodoApp:kullanici@ornek.com?secret=JBSWY3DPEHPK3PXP&issuer=TodoApp"
+    "secret": "JBSWY3DPEHPK3PXP",
+    "qrCodeUri": "otpauth://totp/TodoApp:kullanici@ornek.com?secret=JBSWY3DPEHPK3PXP&issuer=TodoApp"
   }
   ```
 
@@ -438,8 +439,7 @@
 ### 11.2 Dizi Yanıt (`CollectionResponse<T>`)
 ```json
 {
-  "items": [ /* DTO nesneleri */ ],
-  "count": 5
+  "items": [ /* DTO nesneleri */ ]
 }
 ```
 
