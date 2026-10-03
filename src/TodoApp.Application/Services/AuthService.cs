@@ -218,8 +218,18 @@ public class AuthService : IAuthService
         await _passwordResetTokenRepository.AddAsync(resetToken);
         await _passwordResetTokenRepository.SaveChangesAsync();
 
-        var resetLink =
-            $"{_passwordResetSettings.ResetUrl}?token={Uri.EscapeDataString(token)}";
+        string resetLink;
+        if (_passwordResetSettings.ResetUrl.Contains("{token}") || _passwordResetSettings.ResetUrl.Contains("{email}"))
+        {
+            resetLink = _passwordResetSettings.ResetUrl
+                .Replace("{token}", Uri.EscapeDataString(token))
+                .Replace("{email}", Uri.EscapeDataString(user.Email));
+        }
+        else
+        {
+            var separator = _passwordResetSettings.ResetUrl.Contains('?') ? "&" : "?";
+            resetLink = $"{_passwordResetSettings.ResetUrl}{separator}token={Uri.EscapeDataString(token)}&email={Uri.EscapeDataString(user.Email)}";
+        }
 
         var htmlBody = $"""
     <p>Merhaba,</p>

@@ -556,6 +556,59 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task ForgotPasswordAsync_WhenCustomDeepLinkWithPlaceholders_GeneratesExpectedDeepLink()
+    {
+        // ARRANGE
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "user@example.com",
+            PasswordHash = "hash",
+            Role = UserRole.User,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var customOptions = Options.Create(new PasswordResetSettings
+        {
+            ExpiryMinutes = 60,
+            ResetUrl = "todoapp://reset-password?token={token}&email={email}"
+        });
+
+        var mockUserRepository = new Mock<IUserRepository>();
+        mockUserRepository.Setup(repo => repo.GetByEmailAsync("user@example.com")).ReturnsAsync(user);
+
+        var mockRefreshTokenRepository = new Mock<IRefreshTokenRepository>();
+        var mockJwtTokenGenerator = new Mock<IJwtTokenGenerator>();
+        mockJwtTokenGenerator.Setup(g => g.GeneratePasswordResetToken()).Returns(("my-token+123=", DateTime.UtcNow.AddMinutes(60)));
+
+        var mockEmailSender = new Mock<IEmailSender>();
+        var mockPasswordResetTokenRepository = new Mock<IPasswordResetTokenRepository>();
+        var mockPasswordHasher = new Mock<IPasswordHasher>();
+
+        var authService = new AuthService(
+            mockUserRepository.Object,
+            mockRefreshTokenRepository.Object,
+            mockJwtTokenGenerator.Object,
+            mockEmailSender.Object,
+            mockPasswordResetTokenRepository.Object,
+            mockPasswordHasher.Object,
+            customOptions);
+
+        var request = new ForgotPasswordRequest { Email = "user@example.com" };
+
+        // ACT
+        await authService.ForgotPasswordAsync(request);
+
+        // ASSERT
+        var expectedLink = $"todoapp://reset-password?token={Uri.EscapeDataString("my-token+123=")}&email={Uri.EscapeDataString("user@example.com")}";
+        mockEmailSender.Verify(s => s.SendEmailAsync(
+            "user@example.com",
+            "TodoApp - Şifre Sıfırlama",
+            It.Is<string>(body => body.Contains(expectedLink))),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task ResetPasswordAsync_WhenTokenIsExpired_ThrowsValidationException()
     {
         // ARRANGE
