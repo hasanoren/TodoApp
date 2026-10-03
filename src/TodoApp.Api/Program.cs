@@ -124,6 +124,21 @@ app.MapAppHealthChecks();
 app.MapControllers();
 app.MapHub<TodoApp.Api.Hubs.TodoHub>("/hubs/todo");
 
+// Android App Link Otomatik Doğrulama Endpoint'i
+app.MapGet("/.well-known/assetlinks.json", () => Results.Content(
+    @"[
+      {
+        ""relation"": [""delegate_permission/common.handle_all_urls""],
+        ""target"": {
+          ""namespace"": ""android_app"",
+          ""package_name"": ""com.example.todo_app_mobile"",
+          ""sha256_cert_fingerprints"": [
+            ""BE:2E:48:1C:BD:24:19:99:F7:A8:FF:2C:F1:74:D7:07:97:86:61:C1:41:03:BF:F8:B2:12:FC:94:02:CD:BE:08""
+          ]
+        }
+      }
+    ]", "application/json"));
+
 // T11.1.3: Otomatik Veritabanı Migration (Uygulama açılışında şema kontrolü ve güncellemesi)
 using (var scope = app.Services.CreateScope())
 {
