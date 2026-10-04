@@ -122,10 +122,27 @@ public class TodoItemService : ITodoItemService
 
         await _activityService.LogActivityAsync(todoItemId, userId, "Güncellendi", "Görevin detayları güncellendi.");
 
+        if (todoItem.TaskShares != null)
+        {
+            foreach (var share in todoItem.TaskShares)
+            {
+                if (share.UserId != userId)
+                {
+                    await _notificationService.SendTaskUpdatedAsync(
+                        share.UserId,
+                        todoItemId,
+                        "Görev Güncellendi",
+                        $"Paylaşılan '{todoItem.Title}' adlı görev güncellendi."
+                    );
+                }
+            }
+        }
+
         if (userId != todoItem.OwnerId)
         {
-            await _notificationService.SendNotificationAsync(
+            await _notificationService.SendTaskUpdatedAsync(
                 todoItem.OwnerId,
+                todoItemId,
                 "Görev Güncellendi",
                 $"Paylaştığınız '{todoItem.Title}' adlı görev güncellendi."
             );
@@ -157,12 +174,33 @@ public class TodoItemService : ITodoItemService
 
         await _todoItemRepository.SaveChangesAsync(cancellationToken);
 
+        var isCompleted = todoItem.Status == TodoItemStatus.Completed;
+        var actionTitle = isCompleted ? "Görev Tamamlandı" : "Görev Tekrar Açıldı";
+        var actionMessage = isCompleted ? $"Paylaşılan '{todoItem.Title}' adlı görev tamamlandı." : $"Paylaşılan '{todoItem.Title}' adlı görev tekrar açıldı.";
+
+        if (todoItem.TaskShares != null)
+        {
+            foreach (var share in todoItem.TaskShares)
+            {
+                if (share.UserId != userId)
+                {
+                    await _notificationService.SendTaskUpdatedAsync(
+                        share.UserId,
+                        todoItemId,
+                        actionTitle,
+                        actionMessage
+                    );
+                }
+            }
+        }
+
         if (userId != todoItem.OwnerId)
         {
-            await _notificationService.SendNotificationAsync(
+            await _notificationService.SendTaskUpdatedAsync(
                 todoItem.OwnerId,
-                "Görev Tamamlandı",
-                $"Paylaştığınız '{todoItem.Title}' adlı görev tamamlandı."
+                todoItemId,
+                actionTitle,
+                $"Paylaştığınız '{todoItem.Title}' adlı görev {(isCompleted ? "tamamlandı." : "tekrar açıldı.")}"
             );
         }
 
@@ -184,6 +222,22 @@ public class TodoItemService : ITodoItemService
         await _todoItemRepository.SaveChangesAsync(cancellationToken);
 
         await _activityService.LogActivityAsync(todoItemId, userId, "Silindi", "Görev çöp kutusuna taşındı.");
+
+        if (todoItem.TaskShares != null)
+        {
+            foreach (var share in todoItem.TaskShares)
+            {
+                if (share.UserId != userId)
+                {
+                    await _notificationService.SendTaskUpdatedAsync(
+                        share.UserId,
+                        todoItemId,
+                        "Görev Silindi",
+                        $"Sizinle paylaşılan '{todoItem.Title}' adlı görev silindi."
+                    );
+                }
+            }
+        }
 
         _logger.LogInformation("Görev çöp kutusuna taşındı (soft delete). TaskId: {TaskId}, DeletedByUserId: {UserId}", todoItemId, userId);
     }

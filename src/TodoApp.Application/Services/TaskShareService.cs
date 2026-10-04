@@ -86,10 +86,10 @@ public class TaskShareService : ITaskShareService
         );
 
         // T9.2.2 - Gerçek Zamanlı Bildirim
-        await _notificationService.SendNotificationAsync(
+        await _notificationService.SendTaskSharedAsync(
             targetUser.Id,
-            "Yeni Görev Paylaşımı",
-            $"'{task.Title}' adlı görev sizinle paylaşıldı."
+            taskId,
+            task.Title
         );
 
         _logger.LogInformation("Görev başarıyla paylaşıldı. TaskId: {TaskId}, OwnerId: {OwnerId}, TargetUserId: {TargetUserId}", taskId, ownerUserId, targetUser.Id);
@@ -113,7 +113,7 @@ public class TaskShareService : ITaskShareService
     public async Task RemoveShareAsync(Guid ownerUserId, Guid taskId, Guid targetUserId)
     {
         // BR-013 & BR-029: Sadece görev sahibi birinin yetkisini kaldırabilir
-        await _taskAuthorizationService.EnsureOwnerAsync(taskId, ownerUserId);
+        var task = await _taskAuthorizationService.EnsureOwnerAsync(taskId, ownerUserId);
 
         var share = await _taskShareRepository.GetAsync(taskId, targetUserId);
         if (share is null)
@@ -123,6 +123,12 @@ public class TaskShareService : ITaskShareService
 
         _taskShareRepository.Remove(share);
         await _taskShareRepository.SaveChangesAsync();
+
+        await _notificationService.SendNotificationAsync(
+            targetUserId,
+            "Görev Paylaşımı Kaldırıldı",
+            $"'{task.Title}' adlı görevin sizinle paylaşımı sonlandırıldı."
+        );
 
         _logger.LogInformation("Görev paylaşımı kaldırıldı. TaskId: {TaskId}, OwnerId: {OwnerId}, TargetUserId: {TargetUserId}", taskId, ownerUserId, targetUserId);
     }
@@ -136,8 +142,20 @@ public class TaskShareService : ITaskShareService
             throw new NotFoundException("Bu görev sizinle paylaşılmamış.");
         }
 
+        var task = share.Task;
+        var leavingUser = await _userRepository.GetByIdAsync(sharedUserId);
+
         _taskShareRepository.Remove(share);
         await _taskShareRepository.SaveChangesAsync();
+
+        if (task != null)
+        {
+            await _notificationService.SendNotificationAsync(
+                task.OwnerId,
+                "Kullanıcı Görevden Ayrıldı",
+                $"{(leavingUser?.Email ?? "Bir kullanıcı")} '{task.Title}' adlı görevin paylaşımından ayrıldı."
+            );
+        }
 
         _logger.LogInformation("Kullanıcı görev paylaşımından ayrıldı. TaskId: {TaskId}, UserId: {UserId}", taskId, sharedUserId);
     }

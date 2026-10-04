@@ -14,6 +14,7 @@ public class TaskTransferService : ITaskTransferService
     private readonly IUserRepository _userRepo;
     private readonly ITaskShareRepository _taskShareRepo;
     private readonly ITodoItemActivityService? _activityService;
+    private readonly INotificationService? _notificationService;
     private readonly ILogger<TaskTransferService> _logger;
 
     public TaskTransferService(
@@ -22,6 +23,7 @@ public class TaskTransferService : ITaskTransferService
         IUserRepository userRepo,
         ITaskShareRepository taskShareRepo,
         ITodoItemActivityService? activityService = null,
+        INotificationService? notificationService = null,
         ILogger<TaskTransferService>? logger = null)
     {
         _transferRequestRepo = transferRequestRepo;
@@ -29,6 +31,7 @@ public class TaskTransferService : ITaskTransferService
         _userRepo = userRepo;
         _taskShareRepo = taskShareRepo;
         _activityService = activityService;
+        _notificationService = notificationService;
         _logger = logger ?? NullLogger<TaskTransferService>.Instance;
     }
 
@@ -93,6 +96,15 @@ public class TaskTransferService : ITaskTransferService
                 currentOwnerId,
                 "Devir Talebi Oluşturuldu",
                 $"Görevin sahipliğinin {targetUser.Email} kullanıcısına devredilmesi için talep oluşturuldu.");
+        }
+
+        if (_notificationService != null)
+        {
+            await _notificationService.SendTransferRequestedAsync(
+                targetUser.Id,
+                transferRequest.Id,
+                task.Title
+            );
         }
 
         var currentUser = await _userRepo.GetByIdAsync(currentOwnerId);
@@ -190,6 +202,15 @@ public class TaskTransferService : ITaskTransferService
                 "Sahiplik Devredildi",
                 $"Görevin yeni sahibi {newOwner?.Email ?? targetUserId.ToString()} oldu.");
         }
+
+        if (_notificationService != null)
+        {
+            await _notificationService.SendNotificationAsync(
+                oldOwnerId,
+                "Devir Talebi Kabul Edildi",
+                $"'{task.Title}' adlı görevin sahiplik devri kabul edildi."
+            );
+        }
     }
 
     public async Task RejectTransferRequestAsync(Guid targetUserId, Guid requestId)
@@ -212,6 +233,16 @@ public class TaskTransferService : ITaskTransferService
         await _transferRequestRepo.SaveChangesAsync();
 
         _logger.LogInformation("Görev devir talebi reddedildi. RequestId: {RequestId}, UserId: {UserId}", requestId, targetUserId);
+
+        if (_notificationService != null)
+        {
+            var task = await _todoItemRepo.GetByIdAsync(request.TaskId);
+            await _notificationService.SendNotificationAsync(
+                request.FromUserId,
+                "Devir Talebi Reddedildi",
+                $"'{task?.Title ?? "Görev"}' adlı görevin devir talebi reddedildi."
+            );
+        }
     }
 
     public async Task CancelTransferRequestAsync(Guid ownerUserId, Guid requestId)
@@ -234,6 +265,16 @@ public class TaskTransferService : ITaskTransferService
         await _transferRequestRepo.SaveChangesAsync();
 
         _logger.LogInformation("Görev devir talebi iptal edildi. RequestId: {RequestId}, OwnerId: {OwnerId}", requestId, ownerUserId);
+
+        if (_notificationService != null)
+        {
+            var task = await _todoItemRepo.GetByIdAsync(request.TaskId);
+            await _notificationService.SendNotificationAsync(
+                request.ToUserId,
+                "Devir Talebi İptal Edildi",
+                $"'{task?.Title ?? "Görev"}' adlı görevin devir talebi iptal edildi."
+            );
+        }
     }
 }
 

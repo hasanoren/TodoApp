@@ -261,6 +261,18 @@ public static class SignalRTestPage
                 addNotificationCard(title, message);
             });
 
+            connection.on("TaskShared", (taskId, taskTitle) => {
+                console.log("[SignalR Event] TaskShared:", taskId, taskTitle);
+            });
+
+            connection.on("TaskUpdated", (taskId) => {
+                console.log("[SignalR Event] TaskUpdated:", taskId);
+            });
+
+            connection.on("TransferRequested", (requestId, taskTitle) => {
+                console.log("[SignalR Event] TransferRequested:", requestId, taskTitle);
+            });
+
             connection.onreconnecting(() => {
                 updateStatus('connecting', 'Yeniden Bağlanıyor...');
             });

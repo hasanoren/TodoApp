@@ -10,15 +10,18 @@ public class SubTaskService : ISubTaskService
     private readonly ISubTaskRepository _subTaskRepository;
     private readonly ITaskAuthorizationService _taskAuthorizationService;
     private readonly ITodoItemActivityService _activityService;
+    private readonly INotificationService? _notificationService;
 
     public SubTaskService(
         ISubTaskRepository subTaskRepository,
         ITaskAuthorizationService taskAuthorizationService,
-        ITodoItemActivityService activityService)
+        ITodoItemActivityService activityService,
+        INotificationService? notificationService = null)
     {
         _subTaskRepository = subTaskRepository;
         _taskAuthorizationService = taskAuthorizationService;
         _activityService = activityService;
+        _notificationService = notificationService;
     }
 
     public async Task<SubTaskResponse> CreateAsync(
@@ -32,7 +35,7 @@ public class SubTaskService : ISubTaskService
         }
 
         // BR-012, BR-020 & BR-029: Sahip veya Paylaşılan alt görev ekleyebilir, silinmiş göreve eklenemez
-        await _taskAuthorizationService.EnsureCanManageSubTasksAsync(taskId, userId);
+        var task = await _taskAuthorizationService.EnsureCanManageSubTasksAsync(taskId, userId);
 
         var subTaskCount = await _subTaskRepository.CountByTaskIdAsync(taskId);
         if (subTaskCount >= 50)
@@ -58,6 +61,24 @@ public class SubTaskService : ISubTaskService
             "Alt Görev Eklendi",
             $"'{subTask.Title}' adlı alt görev eklendi."
         );
+
+        if (_notificationService != null && task != null)
+        {
+            if (task.TaskShares != null)
+            {
+                foreach (var share in task.TaskShares)
+                {
+                    if (share.UserId != userId)
+                    {
+                        await _notificationService.SendTaskUpdatedAsync(share.UserId, taskId, "Alt Görev Eklendi", $"'{task.Title}' görevine yeni bir alt görev eklendi: '{subTask.Title}'");
+                    }
+                }
+            }
+            if (userId != task.OwnerId)
+            {
+                await _notificationService.SendTaskUpdatedAsync(task.OwnerId, taskId, "Alt Görev Eklendi", $"'{task.Title}' görevine yeni bir alt görev eklendi: '{subTask.Title}'");
+            }
+        }
 
         return MapToResponse(subTask);
     }
@@ -89,6 +110,25 @@ public class SubTaskService : ISubTaskService
             actionText,
             $"'{subTask.Title}' adlı alt görevin durumu değiştirildi."
         );
+
+        if (_notificationService != null && subTask.Task != null)
+        {
+            var task = subTask.Task;
+            if (task.TaskShares != null)
+            {
+                foreach (var share in task.TaskShares)
+                {
+                    if (share.UserId != userId)
+                    {
+                        await _notificationService.SendTaskUpdatedAsync(share.UserId, task.Id, actionText, $"'{task.Title}' görevindeki '{subTask.Title}' adlı alt görevin durumu değiştirildi.");
+                    }
+                }
+            }
+            if (userId != task.OwnerId)
+            {
+                await _notificationService.SendTaskUpdatedAsync(task.OwnerId, task.Id, actionText, $"'{task.Title}' görevindeki '{subTask.Title}' adlı alt görevin durumu değiştirildi.");
+            }
+        }
 
         return MapToResponse(subTask);
     }
