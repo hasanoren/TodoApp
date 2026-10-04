@@ -124,17 +124,19 @@ public class TodoItemService : ITodoItemService
 
         if (todoItem.TaskShares != null)
         {
-            foreach (var share in todoItem.TaskShares)
+            var targetUserIds = todoItem.TaskShares
+                .Select(s => s.UserId)
+                .Where(uid => uid != userId)
+                .Distinct();
+
+            foreach (var targetUserId in targetUserIds)
             {
-                if (share.UserId != userId)
-                {
-                    await _notificationService.SendTaskUpdatedAsync(
-                        share.UserId,
-                        todoItemId,
-                        "Görev Güncellendi",
-                        $"Paylaşılan '{todoItem.Title}' adlı görev güncellendi."
-                    );
-                }
+                await _notificationService.SendTaskUpdatedAsync(
+                    targetUserId,
+                    todoItemId,
+                    "Görev Güncellendi",
+                    $"Paylaşılan '{todoItem.Title}' adlı görev güncellendi."
+                );
             }
         }
 
@@ -180,17 +182,19 @@ public class TodoItemService : ITodoItemService
 
         if (todoItem.TaskShares != null)
         {
-            foreach (var share in todoItem.TaskShares)
+            var targetUserIds = todoItem.TaskShares
+                .Select(s => s.UserId)
+                .Where(uid => uid != userId)
+                .Distinct();
+
+            foreach (var targetUserId in targetUserIds)
             {
-                if (share.UserId != userId)
-                {
-                    await _notificationService.SendTaskUpdatedAsync(
-                        share.UserId,
-                        todoItemId,
-                        actionTitle,
-                        actionMessage
-                    );
-                }
+                await _notificationService.SendTaskUpdatedAsync(
+                    targetUserId,
+                    todoItemId,
+                    actionTitle,
+                    actionMessage
+                );
             }
         }
 
@@ -225,17 +229,19 @@ public class TodoItemService : ITodoItemService
 
         if (todoItem.TaskShares != null)
         {
-            foreach (var share in todoItem.TaskShares)
+            var targetUserIds = todoItem.TaskShares
+                .Select(s => s.UserId)
+                .Where(uid => uid != userId)
+                .Distinct();
+
+            foreach (var targetUserId in targetUserIds)
             {
-                if (share.UserId != userId)
-                {
-                    await _notificationService.SendTaskUpdatedAsync(
-                        share.UserId,
-                        todoItemId,
-                        "Görev Silindi",
-                        $"Sizinle paylaşılan '{todoItem.Title}' adlı görev silindi."
-                    );
-                }
+                await _notificationService.SendTaskUpdatedAsync(
+                    targetUserId,
+                    todoItemId,
+                    "Görev Silindi",
+                    $"Sizinle paylaşılan '{todoItem.Title}' adlı görev silindi."
+                );
             }
         }
 

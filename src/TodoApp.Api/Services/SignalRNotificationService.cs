@@ -29,7 +29,6 @@ public class SignalRNotificationService : INotificationService
     {
         var client = _hubContext.Clients.User(userId.ToString());
         await client.ReceiveNotification("Yeni Görev Paylaşımı", $"'{taskTitle}' adlı görev sizinle paylaşıldı.");
-        await client.TaskShared(taskId, taskTitle);
 
         _logger.LogInformation("SignalR görev paylaşım bildirimi gönderildi. UserId: {UserId}, TaskId: {TaskId}", userId, taskId);
     }
@@ -38,7 +37,6 @@ public class SignalRNotificationService : INotificationService
     {
         var client = _hubContext.Clients.User(userId.ToString());
         await client.ReceiveNotification(title, message);
-        await client.TaskUpdated(taskId);
 
         _logger.LogInformation("SignalR görev güncelleme bildirimi gönderildi. UserId: {UserId}, TaskId: {TaskId}, Title: {Title}", userId, taskId, title);
     }
@@ -47,7 +45,6 @@ public class SignalRNotificationService : INotificationService
     {
         var client = _hubContext.Clients.User(userId.ToString());
         await client.ReceiveNotification("Görev Devir Talebi", $"'{taskTitle}' adlı görevin sahiplik devri teklifi size iletildi.");
-        await client.TransferRequested(requestId, taskTitle);
 
         _logger.LogInformation("SignalR devir talebi bildirimi gönderildi. UserId: {UserId}, RequestId: {RequestId}", userId, requestId);
     }

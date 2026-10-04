@@ -66,12 +66,14 @@ public class SubTaskService : ISubTaskService
         {
             if (task.TaskShares != null)
             {
-                foreach (var share in task.TaskShares)
+                var targetUserIds = task.TaskShares
+                    .Select(s => s.UserId)
+                    .Where(uid => uid != userId)
+                    .Distinct();
+
+                foreach (var targetUserId in targetUserIds)
                 {
-                    if (share.UserId != userId)
-                    {
-                        await _notificationService.SendTaskUpdatedAsync(share.UserId, taskId, "Alt Görev Eklendi", $"'{task.Title}' görevine yeni bir alt görev eklendi: '{subTask.Title}'");
-                    }
+                    await _notificationService.SendTaskUpdatedAsync(targetUserId, taskId, "Alt Görev Eklendi", $"'{task.Title}' görevine yeni bir alt görev eklendi: '{subTask.Title}'");
                 }
             }
             if (userId != task.OwnerId)
@@ -116,12 +118,14 @@ public class SubTaskService : ISubTaskService
             var task = subTask.Task;
             if (task.TaskShares != null)
             {
-                foreach (var share in task.TaskShares)
+                var targetUserIds = task.TaskShares
+                    .Select(s => s.UserId)
+                    .Where(uid => uid != userId)
+                    .Distinct();
+
+                foreach (var targetUserId in targetUserIds)
                 {
-                    if (share.UserId != userId)
-                    {
-                        await _notificationService.SendTaskUpdatedAsync(share.UserId, task.Id, actionText, $"'{task.Title}' görevindeki '{subTask.Title}' adlı alt görevin durumu değiştirildi.");
-                    }
+                    await _notificationService.SendTaskUpdatedAsync(targetUserId, task.Id, actionText, $"'{task.Title}' görevindeki '{subTask.Title}' adlı alt görevin durumu değiştirildi.");
                 }
             }
             if (userId != task.OwnerId)
